@@ -44,6 +44,7 @@ ddp:
 
 ray:
   single_process: False
+  object_store_memory: null
 
 # log
 log:

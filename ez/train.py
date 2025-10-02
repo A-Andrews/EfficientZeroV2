@@ -47,6 +47,32 @@ def main(config):
         start_ddp_trainer(0, config)
 
 
+def _get_total_memory_bytes():
+    """Best-effort detection of total system memory."""
+    if hasattr(os, "sysconf"):
+        try:
+            page_size = os.sysconf("SC_PAGE_SIZE")
+            phys_pages = os.sysconf("SC_PHYS_PAGES")
+            return page_size * phys_pages
+        except (ValueError, OSError, AttributeError):
+            pass
+    return None
+
+
+def _resolve_object_store_memory(config):
+    if hasattr(config.ray, "object_store_memory") and config.ray.object_store_memory is not None:
+        return config.ray.object_store_memory
+
+    target = 150 * 1024 * 1024 * 1024 if config.env.image_based else 100 * 1024 * 1024 * 1024
+    total = _get_total_memory_bytes()
+    if total is None:
+        return target
+
+    # Leave enough headroom for the learner and environment processes.
+    safety_cap = max(int(total * 0.4), 512 * 1024 * 1024)
+    return min(target, safety_cap)
+
+
 def start_ddp_trainer(rank, config):
     assert rank >= 0
     print(f'start {rank} train worker...')
@@ -54,7 +80,9 @@ def start_ddp_trainer(rank, config):
     manager = None
     num_gpus = torch.cuda.device_count()
     num_cpus = multiprocessing.cpu_count()
-    ray.init(num_gpus=num_gpus, num_cpus=num_cpus, object_store_memory=150 * 1024 * 1024 * 1024 if config.env.image_based else 100 * 1024 * 1024 * 1024)
+    object_store_memory = _resolve_object_store_memory(config)
+    print(f"Ray object_store_memory={object_store_memory / (1024 ** 3):.2f} GiB")
+    ray.init(num_gpus=num_gpus, num_cpus=num_cpus, object_store_memory=object_store_memory)
     set_seed(config.env.base_seed + rank >= 0)              # set seed
     # set log
 
