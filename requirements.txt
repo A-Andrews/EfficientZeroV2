@@ -1,4 +1,4 @@
-numpy==1.20.0
+numpy==1.24.4
 gym==0.22.0
 gym[atari]==0.22.0
 gym[accept-rom-license]==0.22.0
@@ -14,5 +14,9 @@ imageio==2.31.5
 imageio[ffmpeg]
 imageio[pyav]
 ray==1.0.0
-torchrl==0.1.0
+torchrl==0.5.0
+torch==2.0.1
+torchvision==0.15.2
+torchaudio==2.0.2
+colorednoise==2.2.0
 git+https://gitclone.com/github.com/denisyarats/dmc2gym.git
