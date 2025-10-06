@@ -43,12 +43,14 @@ class EvalWorker(Worker):
                 save_path = Path(self.config.save_path) / 'evaluation' / 'step_{}'.format(counter)
                 save_path.mkdir(parents=True, exist_ok=True)
                 model_path = Path(self.config.save_path) / 'model.p'
-                eval_score = eval(self.agent, model, self.config.train.eval_n_episode, save_path, self.config,
+                eval_result = eval(self.agent, model, self.config.train.eval_n_episode, save_path, self.config,
                                        max_steps=eval_steps, use_pb=False, verbose=0)
-                mean_score = eval_score.mean()
-                std_score = eval_score.std()
-                min_score = eval_score.min()
-                max_score = eval_score.max()
+                scores = eval_result.scores
+                mean_score = scores.mean()
+                std_score = scores.std()
+                min_score = scores.min()
+                max_score = scores.max()
+                win_rate = eval_result.win_rate if self.config.env.env == 'VGDL' else None
 
                 if mean_score >= best_eval_score:
                     best_eval_score = mean_score
@@ -56,12 +58,15 @@ class EvalWorker(Worker):
                     torch.save(model.state_dict(), model_path)
 
                 self.storage.set_eval_counter.remote(counter)
-                self.storage.add_eval_log_scalar.remote({
+                log_payload = {
                     'eval/mean_score': mean_score,
                     'eval/std_score': std_score,
                     'eval/max_score': max_score,
                     'eval/min_score': min_score
-                })
+                }
+                if win_rate is not None:
+                    log_payload['eval/win_rate'] = win_rate
+                self.storage.add_eval_log_scalar.remote(log_payload)
 
             time.sleep(10)
 

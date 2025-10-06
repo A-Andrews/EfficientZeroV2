@@ -4,7 +4,7 @@ agent_name: atari_agent
 # environment
 env:
   env: VGDL
-  game: VGDL_aliens
+  game: VGDL_avoidgeorge
   base_seed: 0
   n_skip: 1
   n_stack: 4

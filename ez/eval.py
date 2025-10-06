@@ -17,6 +17,7 @@ import multiprocessing
 import numpy as np
 import imageio
 from PIL import Image, ImageDraw
+from dataclasses import dataclass
 
 from pathlib import Path
 from tqdm.auto import tqdm
@@ -29,6 +30,16 @@ from ez.envs import make_envs
 from ez.utils.format import formalize_obs_lst, DiscreteSupport, prepare_obs_lst, symexp, profile
 from ez.mcts.cy_mcts import Gumbel_MCTS
 from ez.utils.distribution import SquashedNormal, TruncatedNormal
+
+
+@dataclass
+class EvalResult:
+    scores: np.ndarray
+    wins: np.ndarray
+
+    @property
+    def win_rate(self) -> float:
+        return float(self.wins.mean()) if self.wins.size else 0.0
 
 @hydra.main(config_path="./config", config_name='config', version_base='1.1')
 def main(config):
@@ -76,6 +87,7 @@ def eval(agent, model, n_episodes, save_path, config, max_steps=None, use_pb=Fal
     if use_pb:
         pb = tqdm(np.arange(max_steps), leave=True)
     ep_ori_rewards = np.zeros(n_episodes)
+    win_flags = np.zeros(n_episodes, dtype=np.float32)
 
     # make env
     if max_steps is not None:
@@ -142,6 +154,9 @@ def eval(agent, model, n_episodes, save_path, config, max_steps=None, use_pb=Fal
             rewards[i].append(info['raw_reward'])
             dones[i] = done
 
+            if info.get('win'):
+                win_flags[i] = 1.0
+
             # save data to trajectory buffer
             game_trajs[i].store_search_results(values[i], r_values[i], r_policies[i])
             game_trajs[i].append(action, obs, reward)
@@ -172,6 +187,7 @@ def eval(agent, model, n_episodes, save_path, config, max_steps=None, use_pb=Fal
 
         j = 0
         for frame, reward in zip(frames[i], rewards[i]):
+            frame = np.squeeze(frame, axis=-1) if frame.ndim == 3 and frame.shape[-1] == 1 else frame
             frame = Image.fromarray(frame)
             draw = ImageDraw.Draw(frame)
             if config.env.game == 'hopper_hop':
@@ -184,7 +200,7 @@ def eval(agent, model, n_episodes, save_path, config, max_steps=None, use_pb=Fal
             j += 1
         writer.close()
 
-    return ep_ori_rewards
+    return EvalResult(scores=ep_ori_rewards, wins=win_flags)
 
 
 

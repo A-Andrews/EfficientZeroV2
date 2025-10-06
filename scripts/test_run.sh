@@ -27,7 +27,7 @@ cleanup() {
 trap cleanup EXIT
 
 export OMP_NUM_THREADS=1 HYDRA_FULL_ERROR=1
-python ez/train.py exp_config=ez/config/exp/vgdl_image.yaml
+python ez/train.py exp_config=ez/config/exp/vgdl_image.yaml "$@"
 
 
 echo "Done!"

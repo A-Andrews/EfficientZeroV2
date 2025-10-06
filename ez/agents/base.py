@@ -258,6 +258,9 @@ class Agent:
                                    'best score over past evaluation = {:.3f}' \
                                    ''.format(self.config.env.game, eval_counter, eval_score, min_score, max_score,
                                              eval_best_score)
+                    win_rate = eval_scalar.get('eval/win_rate')
+                    if win_rate is not None:
+                        eval_log_str += f', win rate = {win_rate:.3f}'
                     eval_logger.info(eval_log_str)
                     # TODO: fix the counter issue
                     # logger.log(eval_scalar, eval_counter)
@@ -882,6 +885,9 @@ def train_ddp(agent, rank, replay_buffer, storage, batch_storage, logger):
                                'best score over past evaluation = {:.3f}' \
                                ''.format(agent.config.env.game, eval_counter, eval_score, min_score, max_score,
                                          eval_best_score)
+                win_rate = eval_scalar.get('eval/win_rate')
+                if win_rate is not None:
+                    eval_log_str += f', win rate = {win_rate:.3f}'
                 eval_logger.info(eval_log_str)
                 print('[Eval] ', eval_log_str)
 

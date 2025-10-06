@@ -165,8 +165,11 @@ class VGDLAtariLikeEnv(gym.Env):
         done = terminated or truncated
         return obs, float(reward), bool(done), info
 
-    def render(self):
-        return self._env.render()
+    def render(self, mode: str = "rgb_array"):
+        frame = self._env.render()
+        if mode not in (None, "rgb_array", "human"):
+            raise NotImplementedError(f"Unsupported render mode '{mode}'")
+        return frame
 
     def seed(self, seed: Optional[int] = None):
         if seed is not None and hasattr(self._env, "seed"):
