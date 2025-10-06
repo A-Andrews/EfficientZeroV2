@@ -50,6 +50,9 @@ ray:
 log:
   log_interval: 100    # prev 1000
   log_smos: False
+  ckpt_interval: 10000
+  eval_interval: 50000
+  save_dir: ./outputs/default
 
 # ===========================================================================
 # evaluation

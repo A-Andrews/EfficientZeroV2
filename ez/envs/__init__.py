@@ -1,23 +1,34 @@
 import os
+try:
+    import gym
+    from gym.wrappers import Monitor
+except ImportError:
+    try:
+        import gymnasium as gym
+        from gymnasium.wrappers import Monitor
+    except ImportError as exc:
+        raise ImportError('Install gymnasium or gym to use the VGDL wrapper (e.g. pip install gymnasium==0.29.1)') from exc
 import dmc2gym
-from gym.wrappers import Monitor
 from .gym import GymWrapper
 from .atari import AtariWrapper
 from .dmc import DMCWrapper
 from .wrapper import *
+from .vgdl_env import VGDLAtariLikeEnv
 import random
 from dm_env import specs
 from ez.utils.format import arr_to_str
 
 
 def make_envs(game_setting, game_name, num_envs, seed, save_path=None, **kwargs):
-    assert game_setting in ['Atari', 'DMC', 'Gym']
+    assert game_setting in ['Atari', 'DMC', 'Gym', 'VGDL']
     if game_setting == 'Atari':
         _env_fn = make_atari
     elif game_setting == 'Gym':
         _env_fn = make_gym
     elif game_setting == 'DMC':
         _env_fn = make_dmc
+    elif game_setting == 'VGDL':
+        _env_fn = make_vgdl
     else:
         raise NotImplementedError()
 
@@ -32,19 +43,55 @@ def make_envs(game_setting, game_name, num_envs, seed, save_path=None, **kwargs)
 
 
 def make_env(game_setting, game_name, num_envs, seed, save_path=None, **kwargs):
-    assert game_setting in ['Atari', 'DMC', 'Gym']
+    assert game_setting in ['Atari', 'DMC', 'Gym', 'VGDL']
     if game_setting == 'Atari':
         _env_fn = make_atari
     elif game_setting == 'Gym':
         _env_fn = make_gym
     elif game_setting == 'DMC':
         _env_fn = make_dmc
+    elif game_setting == 'VGDL':
+        _env_fn = make_vgdl
     else:
         raise NotImplementedError()
 
     seed = random.randint(1, 1000)
 
     env = _env_fn(game_name, seed=seed, save_path=save_path, **kwargs)
+
+    return env
+
+
+
+def make_vgdl(game_name, seed, save_path=None, **kwargs):
+    obs_to_string = kwargs.get('obs_to_string', False)
+    resize = kwargs.get('resize', 84)
+    obs_shape = kwargs.get('obs_shape')
+    if obs_shape and len(obs_shape) >= 3:
+        resize = obs_shape[1]
+    games_folder = kwargs.get('games_folder')
+    rc_rl_root = kwargs.get('rc_rl_root')
+    max_episode_steps = kwargs.get('max_episode_steps')
+    clip_reward = kwargs.get('clip_reward', False)
+
+    env = VGDLAtariLikeEnv(
+        game_name=game_name,
+        resize=resize,
+        games_folder=games_folder,
+        rc_rl_root=rc_rl_root,
+        max_episode_steps=max_episode_steps,
+        obs_to_string=obs_to_string,
+        clip_reward=clip_reward,
+    )
+
+    if save_path:
+        env = Monitor(env, directory=save_path, force=True)
+
+    if hasattr(env, 'seed'):
+        try:
+            env.seed(seed)
+        except Exception:
+            pass
 
     return env
 

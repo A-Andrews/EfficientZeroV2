@@ -120,14 +120,14 @@ class DataWorker(Worker):
 
             # tree search for policies
             tree = mcts.names[config.mcts.language](
-                # num_actions=config.env.action_space_size if config.env.env == 'Atari' else config.mcts.num_top_actions,
-                num_actions=config.env.action_space_size if config.env.env == 'Atari' else config.mcts.num_sampled_actions,
+                # num_actions=config.env.action_space_size if config.env.env in ('Atari', 'VGDL') else config.mcts.num_top_actions,
+                num_actions=config.env.action_space_size if config.env.env in ('Atari', 'VGDL') else config.mcts.num_sampled_actions,
                 discount=config.rl.discount,
                 env=config.env.env,
                 **config.mcts,  # pass mcts related params
                 **config.model,  # pass the value and reward support params
             )
-            if self.config.env.env == 'Atari':
+            if self.config.env.env in ('Atari', 'VGDL'):
                 if self.config.mcts.use_gumbel:
                     r_values, r_policies, best_actions, _ = tree.search(self.model, num_envs, states, values, policies,
                                                                         # use_gumble_noise=False, # for test search
@@ -154,7 +154,7 @@ class DataWorker(Worker):
                 game_trajs[i].store_search_results(values[i], r_values[i], r_policies[i])
                 game_trajs[i].append(action, obs, reward)
                 # game_trajs[i].raw_obs_lst.append(obs)
-                if self.config.env.env == 'Atari':
+                if self.config.env.env in ('Atari', 'VGDL'):
                     game_trajs[i].snapshot_lst.append([])
                 else:
                     game_trajs[i].snapshot_lst.append([])
