@@ -30,7 +30,7 @@ class EvalWorker(Worker):
         best_eval_score = float('-inf')
         episodes = 0
         counter = 0
-        eval_steps = 27000 #if self.config.env.game in ['CrazyClimber', 'UpNDown', 'DemonAttack', 'Asterix', 'KungFuMaster'] else 3000           # due to time limitation, eval 3000 steps (instead of 27000) during training.
+        eval_steps = 2700  # shorter horizon to match scaled-down training runs
         while not self.is_finished(counter):
             counter = ray.get(self.storage.get_counter.remote())
             if counter >= self.config.train.eval_interval * episodes:

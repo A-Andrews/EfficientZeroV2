@@ -4,7 +4,7 @@ agent_name: atari_agent
 # environment
 env:
   env: VGDL
-  game: VGDL_avoidgeorge
+  game: VGDL_bait
   base_seed: 0
   n_skip: 1
   n_stack: 4
@@ -18,6 +18,9 @@ env:
   resize: 84
   games_folder: all_games_original
   rc_rl_root: /gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL
+  level_mode: sequential
+  level_seed: 0
+  fixed_level: null
 
 rl:
   discount: 0.997
@@ -28,16 +31,17 @@ rl:
 
 train:
   load_model_path: ''
-  batch_size: 256
-  training_steps: 200000
-  offline_training_steps: 20000
-  start_transitions: 2000
+  batch_size: 128
+  training_steps: 100000
+  offline_training_steps: 2000
+  start_transitions: 200
+  random_warmup_steps: 5000
   eval_n_episode: 10
-  eval_interval: 50000
-  self_play_update_interval: 100
-  reanalyze_update_interval: 200
-  save_ckpt_interval: 10000
-  mini_batch_size: 256
+  eval_interval: 5000
+  self_play_update_interval: 10
+  reanalyze_update_interval: 20
+  save_ckpt_interval: 1000
+  mini_batch_size: 128
   reanalyze_ratio: 1.0
   reward_loss_coeff: 1.0
   value_loss_coeff: 0.5
@@ -58,8 +62,8 @@ train:
   value_target: 'mixed'
   use_IQL: False
   IQL_weight: 0.7
-  start_use_mix_training_steps: 3e4
-  mixed_value_threshold: 5e3
+  start_use_mix_training_steps: 3e3
+  mixed_value_threshold: 5e2
 
 optimizer:
   type: SGD
@@ -78,25 +82,25 @@ priority:
   min_prior: 0.000001
 
 data:
-  num_envs: 4
-  buffer_size: 200000
-  total_transitions: 200000
-  top_transitions: 200000
-  trajectory_size: 400
+  num_envs: 8
+  buffer_size: 100000
+  total_transitions: 100000
+  top_transitions: 100000
+  trajectory_size: 40
   save_video: False
   save_as_dataset: False
 
 mcts:
   language: cython
-  num_simulations: 50
-  num_top_actions: 4
+  num_simulations: 150
+  num_top_actions: 6
   num_sampled_actions: 4
   c_visit: 50
   c_scale: 0.1
   c_base: 19652
   c_init: 1.25
-  dirichlet_alpha: 0.3
-  explore_frac: 0.25
+  dirichlet_alpha: 0.6
+  explore_frac: 0.35
   value_minmax_delta: 0.01
   vis: ['print']
   mpc_horizon: 1
@@ -122,16 +126,16 @@ model:
   lstm_horizon_len: 5
   policy_loss_type: reanalyze
   reward_support:
-    range: [-300, 300]
+    range: [-20, 20]
     scale: 1
     env: Atari
-    bins: 51
+    bins: 41
     type: support
   value_support:
-    range: [-300, 300]
+    range: [-20, 20]
     scale: 1
     env: Atari
-    bins: 51
+    bins: 41
     type: support
 
 actors:
@@ -143,6 +147,6 @@ wandb:
   tag: VGDL
 
 log:
-  ckpt_interval: 10000
-  eval_interval: 50000
-  save_dir: ./outputs/vgdl_aliens
+  ckpt_interval: 1000
+  eval_interval: 5000
+  save_dir: ./outputs/vgdl_bait

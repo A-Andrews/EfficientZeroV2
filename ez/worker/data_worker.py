@@ -56,6 +56,10 @@ class DataWorker(Worker):
         envs = make_envs(config.env.env, config.env.game, num_envs, cur_seed + self.rank * num_envs,
                          save_path=video_path, episodic_life=config.env.episodic, **config.env)   # prev episodic_life=True
 
+        warmup_threshold = int(getattr(self.config.train, 'random_warmup_steps', 0) or 0)
+        warmup_threshold = max(0, warmup_threshold)
+        approx_env_steps = 0
+
         # initialization
         trained_steps = 0           # current training steps
         collected_transitions = ray.get(self.replay_buffer.get_transition_num.remote())   # total transitions collected
@@ -127,20 +131,44 @@ class DataWorker(Worker):
                 **config.mcts,  # pass mcts related params
                 **config.model,  # pass the value and reward support params
             )
-            if self.config.env.env in ('Atari', 'VGDL'):
-                if self.config.mcts.use_gumbel:
-                    r_values, r_policies, best_actions, _ = tree.search(self.model, num_envs, states, values, policies,
-                                                                        # use_gumble_noise=False, # for test search
-                                                                        temperature=temperature)
-                else:
-                    r_values, r_policies, best_actions, _ = tree.search_ori_mcts(self.model, num_envs, states, values, policies,
-                                                                                    use_noise=True, temperature=temperature)
+            use_random_policy = warmup_threshold > 0 and approx_env_steps < warmup_threshold
+
+            if use_random_policy:
+                best_actions = [envs[i].action_space.sample() for i in range(num_envs)]
+                r_values = np.zeros(num_envs, dtype=np.float32)
+                action_space_size = self.config.env.action_space_size
+                r_policies = np.full((num_envs, action_space_size), 1.0 / max(1, action_space_size), dtype=np.float32)
             else:
-                r_values, r_policies, best_actions, sampled_actions, best_indexes, mcts_info = tree.search_continuous(
-                        self.model, num_envs, states, values, policies, temperature=temperature,
-                        # use_gumble_noise=True,
-                        input_noises=None 
-                    )
+                if self.config.env.env in ('Atari', 'VGDL'):
+                    if self.config.mcts.use_gumbel:
+                        r_values, r_policies, best_actions, _ = tree.search(self.model, num_envs, states, values, policies,
+                                                                            # use_gumble_noise=False, # for test search
+                                                                            temperature=temperature)
+                    else:
+                        r_values, r_policies, best_actions, _ = tree.search_ori_mcts(self.model, num_envs, states, values, policies,
+                                                                                        use_noise=True, temperature=temperature)
+                else:
+                    r_values, r_policies, best_actions, sampled_actions, best_indexes, mcts_info = tree.search_continuous(
+                            self.model, num_envs, states, values, policies, temperature=temperature,
+                            # use_gumble_noise=True,
+                            input_noises=None 
+                        )
+
+            if self.rank == 0 and self.config.env.env == 'VGDL' and self.config.log.log_interval > 0 \
+                    and collected_transitions % max(1, self.config.log.log_interval // max(1, num_envs)) == 0:
+                action_hist = np.bincount(np.asarray(best_actions, dtype=np.int64),
+                                          minlength=self.config.env.action_space_size)
+                total_actors = max(1, num_envs)
+                action_freq_logs = {
+                    f'self_play/action_frac_{act}': float(action_hist[act] / total_actors)
+                    for act in range(len(action_hist))
+                }
+                self.storage.add_log_scalar.remote(action_freq_logs)
+                hist_samples = np.repeat(np.arange(len(action_hist), dtype=np.float32), action_hist.astype(np.int64))
+                if hist_samples.size > 0:
+                    self.storage.add_log_distribution.remote({
+                        'dist/self_play_action_hist': hist_samples
+                    })
 
             # step action in environments
             for i in range(num_envs):
@@ -177,7 +205,9 @@ class DataWorker(Worker):
                     game_trajs[i].init(stack_obs_windows[i])
 
                     traj_len[i] = 0
-    
+
+                approx_env_steps += 1
+
                 # reset an env if done
                 if dones[i]:
                     # save the previous trajectory

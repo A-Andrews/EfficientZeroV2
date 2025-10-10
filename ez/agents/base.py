@@ -620,13 +620,20 @@ class Agent:
     def get_temperature(self, trained_steps):
         if self.config.train.change_temperature:
             total_steps = self.config.train.training_steps + self.config.train.offline_training_steps
-            # if self.config.env.env == 'Atari':
-            if trained_steps < 0.5 * total_steps:   # prev 0.5
-                return 1.0
-            elif trained_steps < 0.75 * total_steps:    # prev 0.75
-                return 0.5
+            if self.config.env.env == 'VGDL':
+                if trained_steps < 0.5 * total_steps:
+                    return 1.25
+                elif trained_steps < 0.75 * total_steps:
+                    return 1.0
+                else:
+                    return 0.75
             else:
-                return 0.25
+                if trained_steps < 0.5 * total_steps:
+                    return 1.0
+                elif trained_steps < 0.75 * total_steps:
+                    return 0.5
+                else:
+                    return 0.25
         else:
             return 1.0
 

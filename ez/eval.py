@@ -68,7 +68,7 @@ def main(config):
     save_path = Path(config.eval.save_path)
 
     eval(agent, model, n_episodes, save_path, config,
-         max_steps=27000,
+         max_steps=2700,
          use_pb=True, verbose=config.eval.verbose)
 
 @torch.no_grad()
@@ -150,7 +150,11 @@ def eval(agent, model, n_episodes, save_path, config, max_steps=None, use_pb=Fal
 
             action = best_actions[i]
             obs, reward, done, info = envs[i].step(action)
-            frames[i].append(obs if config.env.image_based else envs[i].render(mode='rgb_array'))
+            try:
+                frame_rgb = envs[i].render(mode='rgb_array')
+            except TypeError:
+                frame_rgb = envs[i].render()
+            frames[i].append(frame_rgb if frame_rgb is not None else obs)
             rewards[i].append(info['raw_reward'])
             dones[i] = done
 

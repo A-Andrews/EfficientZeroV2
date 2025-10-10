@@ -1,9 +1,8 @@
 #!/bin/bash
-#SBATCH --partition=gpu_long
-#SBATCH --gres=gpu:1
-#SBATCH --job-name=muzero_hanoi
-#SBATCH --output=logs/vgdl_check/%x_%j.out
-#SBATCH --error=logs/vgdl_check/%x_%j.err
+#SBATCH --partition=short
+#SBATCH --job-name=redius_version_test
+#SBATCH --output=logs/redis_version_test/%x_%j.out
+#SBATCH --error=logs/redis_version_test/%x_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 
@@ -16,22 +15,5 @@ echo "------------------------------------------------"
 module load Miniforge3/24.1.2-0
 eval "$(conda shell.bash hook)"
 conda activate ez-vgdl-py38
-
 export PATH="$HOME/.local/bin:$PATH"
 which redis-server && redis-server --version
-
-export RAY_REDIS_EXECUTABLE="$HOME/.local/bin/redis-server"
-
-export RAY_TMPDIR=/well/costa/users/zqa082/ray_tmp
-mkdir -p $RAY_TMPDIR
-
-cleanup() {
-  ray stop >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
-export OMP_NUM_THREADS=1 HYDRA_FULL_ERROR=1
-python scripts/check_vgdl_env.py
-
-
-echo "Done!"

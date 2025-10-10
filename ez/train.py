@@ -83,7 +83,7 @@ def start_ddp_trainer(rank, config):
     object_store_memory = _resolve_object_store_memory(config)
     print(f"Ray object_store_memory={object_store_memory / (1024 ** 3):.2f} GiB")
     ray.init(num_gpus=num_gpus, num_cpus=num_cpus, object_store_memory=object_store_memory)
-    set_seed(config.env.base_seed + rank >= 0)              # set seed
+    set_seed(config.env.base_seed + rank)                  # set seed
     # set log
 
     if rank == 0:
@@ -144,8 +144,8 @@ def train(rank, agent, manager, logger, config):
         time.sleep(1)
         final_weights, final_model = ray.get(train_workers)
 
-    eval_result = eval(agent, final_model, 10, Path(config.save_path) / 'evaluation' / 'final', config,
-                          max_steps=27000, use_pb=False, verbose=config.eval.verbose)
+    eval_result = eval(agent, final_model, config.train.eval_n_episode, Path(config.save_path) / 'evaluation' / 'final', config,
+                          max_steps=2700, use_pb=False, verbose=config.eval.verbose)
     print(f'final_mean_score={eval_result.scores.mean():.3f}')
     if config.env.env == 'VGDL':
         print(f'final_win_rate={eval_result.win_rate:.3f}')

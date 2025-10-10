@@ -5,6 +5,7 @@ from typing import Optional
 import cv2
 import numpy as np
 import importlib.util
+import random
 
 try:
     import gymnasium as gym
@@ -60,6 +61,9 @@ class VGDLAtariLikeEnv(gym.Env):
         max_episode_steps: Optional[int] = None,
         obs_to_string: bool = False,
         clip_reward: bool = False,
+        level_mode: str = "sequential",
+        level_seed: Optional[int] = 0,
+        fixed_level: Optional[int] = None,
     ) -> None:
         super().__init__()
 
@@ -82,6 +86,20 @@ class VGDLAtariLikeEnv(gym.Env):
 
         self._env = VGDLEnv(self.game_name, self.games_folder)
         self._elapsed_steps = 0
+
+        self._num_levels = max(len(getattr(self._env, "env_list", []) or []), 1)
+        level_mode_normalized = (level_mode or "sequential").lower()
+        if level_mode_normalized not in {"sequential", "random", "fixed"}:
+            raise ValueError(
+                "level_mode must be one of {'sequential', 'random', 'fixed'}"
+            )
+        self.level_mode = level_mode_normalized
+        self.fixed_level = fixed_level if fixed_level is not None else 0
+        self.level_seed = 0 if level_seed is None else int(level_seed)
+        self._sequential_cursor = None
+        self._current_level = None
+        # Keep a RNG even for sequential mode so random start offsets are deterministic.
+        self._level_rng = random.Random(self.level_seed)
 
         actions = getattr(self._env, "actions", None)
         if not actions:
@@ -127,11 +145,20 @@ class VGDLAtariLikeEnv(gym.Env):
             except Exception:
                 pass
 
+        self._sync_level_metadata()
+
+        requested_level = None
         if options and "level" in options:
-            self._env.lvl = int(options["level"])
+            requested_level = int(options["level"])
+
+        level = self._select_level(requested_level)
+        if hasattr(self._env, "lvl"):
+            self._env.lvl = level
 
         self._env.reset()
+        self._sync_level_metadata()
         self._elapsed_steps = 0
+        self._current_level = getattr(self._env, "lvl", level)
 
         frame = self._preprocess(self._render_frame())
         obs = self._format_obs(frame)
@@ -141,6 +168,7 @@ class VGDLAtariLikeEnv(gym.Env):
     def step(self, action):
         action_idx = int(action)
         reward, ended, win = self._env.step(action_idx)
+        self._current_level = getattr(self._env, "lvl", self._current_level)
 
         frame = self._preprocess(self._render_frame())
         obs = self._format_obs(frame)
@@ -155,7 +183,7 @@ class VGDLAtariLikeEnv(gym.Env):
             "win": bool(win),
             "terminated": terminated,
             "truncated": truncated,
-            "level": getattr(self._env, "lvl", None),
+            "level": self._current_level if self._current_level is not None else getattr(self._env, "lvl", None),
             "raw_reward": float(reward),
         }
 
@@ -194,3 +222,43 @@ class VGDLAtariLikeEnv(gym.Env):
             except Exception:
                 pass
         return None
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _sync_level_metadata(self) -> None:
+        env_list = getattr(self._env, "env_list", None)
+        if env_list is not None:
+            self._num_levels = max(len(env_list), 1)
+        if self.level_mode == "sequential":
+            if self._sequential_cursor is None:
+                # deterministically offset the start with the seed
+                self._sequential_cursor = self.level_seed % self._num_levels
+            else:
+                self._sequential_cursor %= self._num_levels
+        if self.level_mode == "fixed":
+            self.fixed_level = self._normalize_level(self.fixed_level)
+
+    def _normalize_level(self, level: Optional[int]) -> int:
+        if level is None:
+            return 0
+        if self._num_levels <= 0:
+            return int(level)
+        return int(level) % self._num_levels
+
+    def _select_level(self, override: Optional[int]) -> int:
+        if override is not None:
+            return self._normalize_level(override)
+
+        if self.level_mode == "fixed":
+            return self._normalize_level(self.fixed_level)
+
+        if self.level_mode == "random":
+            return self._level_rng.randrange(self._num_levels)
+
+        # Sequential (default)
+        if self._sequential_cursor is None:
+            self._sequential_cursor = self.level_seed % self._num_levels
+        level = self._sequential_cursor
+        self._sequential_cursor = (self._sequential_cursor + 1) % self._num_levels
+        return level

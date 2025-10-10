@@ -16,7 +16,10 @@ echo "------------------------------------------------"
 module load Miniforge3/24.1.2-0
 eval "$(conda shell.bash hook)"
 conda activate ez-vgdl-py38
+export PATH="$HOME/.local/bin:$PATH"
+which redis-server && redis-server --version
 
+export RAY_REDIS_EXECUTABLE="$HOME/.local/bin/redis-server"
 export RAY_TMPDIR=/well/costa/users/zqa082/ray_tmp
 mkdir -p $RAY_TMPDIR
 mkdir -p logs/vgdl_run

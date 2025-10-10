@@ -73,6 +73,14 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
     rc_rl_root = kwargs.get('rc_rl_root')
     max_episode_steps = kwargs.get('max_episode_steps')
     clip_reward = kwargs.get('clip_reward', False)
+    level_mode = kwargs.get('level_mode', 'sequential')
+    base_level_seed = kwargs.get('level_seed')
+    fixed_level = kwargs.get('fixed_level')
+
+    if base_level_seed is None:
+        level_seed = seed
+    else:
+        level_seed = int(base_level_seed) + int(seed)
 
     env = VGDLAtariLikeEnv(
         game_name=game_name,
@@ -82,6 +90,9 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
         max_episode_steps=max_episode_steps,
         obs_to_string=obs_to_string,
         clip_reward=clip_reward,
+        level_mode=level_mode,
+        level_seed=level_seed,
+        fixed_level=fixed_level,
     )
 
     if save_path:

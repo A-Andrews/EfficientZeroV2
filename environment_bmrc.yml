@@ -76,6 +76,7 @@ dependencies:
   - pytorch=2.4.1=py3.8_cuda12.1_cudnn9.1.0_0
   - pytorch-cuda=12.1=ha16c6d3_6
   - pytorch-mutex=1.0=cuda
+  - redis-server>=7.4.1
   - readline=8.2=h8c095d6_2
   - setuptools=75.3.0=pyhd8ed1ab_0
   - sympy=1.13.3=pyh2585a3b_104
@@ -197,7 +198,7 @@ dependencies:
       - pyparsing==3.1.4
       - pyyaml==6.0.3
       - ray==1.0.0
-      - redis==3.4.1
+      - redis==3.5.3
       - referencing==0.35.1
       - requests==2.32.4
       - rpds-py==0.20.1

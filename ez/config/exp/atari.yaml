@@ -102,8 +102,8 @@ mcts:
   c_scale: 0.1    # prev 0.1
   c_base: 19652
   c_init: 1.25
-  dirichlet_alpha: 0.3
-  explore_frac: 0.25
+  dirichlet_alpha: 0.6
+  explore_frac: 0.35
   value_minmax_delta: 0.01
   vis: ['print']
   mpc_horizon: 1
@@ -133,13 +133,13 @@ model:
   policy_loss_type: reanalyze  # policy_gradient or reanalyze
 
   reward_support:
-    range: [-300, 300]
+    range: [-20, 20]
     scale: 1
     env: Atari
     bins: 51
     type: support   # support or symlog
   value_support:
-    range: [-300, 300]
+    range: [-20, 20]
     scale: 1
     env: Atari
     bins: 51
