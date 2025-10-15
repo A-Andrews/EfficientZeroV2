@@ -4,7 +4,7 @@ agent_name: atari_agent
 # environment
 env:
   env: VGDL
-  game: VGDL_bait
+  game: VGDL_vgfmri4_bait
   base_seed: 0
   n_skip: 1
   n_stack: 4
@@ -16,7 +16,7 @@ env:
   obs_shape: [1, 84, 84]
   obs_to_string: False
   resize: 84
-  games_folder: all_games_original
+  games_folder: all_games
   rc_rl_root: /gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL
   level_mode: sequential
   level_seed: 0
