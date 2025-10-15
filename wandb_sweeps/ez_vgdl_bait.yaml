@@ -1,0 +1,49 @@
+name: ez-vgdl-bait-sweep
+project: ezv2-vgdl
+method: bayes
+metric:
+  name: Eval/score
+  goal: maximize
+early_terminate:
+  type: hyperband
+  min_iter: 6000
+program: ez/train.py
+command:
+  - ${env}
+  - python
+  - ${program}
+  - exp_config=ez/config/exp/vgdl_image.yaml
+  - tag=${wandb.run.name}
+  - +env.max_episode_steps={{env_max_episode_steps}}
+  - +mcts.explore_frac={{mcts_explore_frac}}
+  - +mcts.dirichlet_alpha={{mcts_dirichlet_alpha}}
+  - +mcts.num_simulations={{mcts_num_simulations}}
+  - +train.entropy_coeff={{train_entropy_coeff}}
+  - +priority.priority_prob_beta={{priority_prob_beta}}
+  - +data.buffer_size={{data_buffer_size}}
+  - +data.total_transitions={{data_buffer_size}}
+  - +data.top_transitions={{data_buffer_size}}
+  - +train.eval_interval={{train_eval_interval}}
+  - +train.training_steps={{train_training_steps}}
+parameters:
+  env_max_episode_steps:
+    values: [3000, 3500, 4000]
+  mcts_explore_frac:
+    min: 0.18
+    max: 0.30
+  mcts_dirichlet_alpha:
+    min: 0.20
+    max: 0.35
+  mcts_num_simulations:
+    values: [180, 220, 256]
+  train_entropy_coeff:
+    values: [0.001, 0.0015, 0.002, 0.003]
+  priority_prob_beta:
+    min: 0.55
+    max: 0.75
+  data_buffer_size:
+    values: [50000, 60000, 80000]
+  train_eval_interval:
+    values: [3000, 4000]
+  train_training_steps:
+    values: [80000, 90000, 100000]

@@ -113,6 +113,14 @@ class VGDLAtariLikeEnv(gym.Env):
             dtype=np.uint8,
         )
 
+    @property
+    def num_levels(self) -> int:
+        return int(self._num_levels)
+
+    @property
+    def current_level(self) -> Optional[int]:
+        return self._current_level
+
     @staticmethod
     def _resolve_game_name(game_name: str) -> str:
         if not game_name:

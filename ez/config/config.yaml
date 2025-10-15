@@ -12,15 +12,15 @@ save_path: results/${env.env}/${env.game}/
 # ===========================================================================
 
 agent_name:
-env:
-rl:
-optimizer:
-priority:
-train:
-data:
-mcts:
-model:
-actors:
+env: {}
+rl: {}
+optimizer: {}
+priority: {}
+train: {}
+data: {}
+mcts: {}
+model: {}
+actors: {}
 wandb:
   project: 'ez-v2'
   tag: ''

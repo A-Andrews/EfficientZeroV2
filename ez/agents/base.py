@@ -622,11 +622,11 @@ class Agent:
             total_steps = self.config.train.training_steps + self.config.train.offline_training_steps
             if self.config.env.env == 'VGDL':
                 if trained_steps < 0.5 * total_steps:
-                    return 1.25
+                    return 1.5
                 elif trained_steps < 0.75 * total_steps:
-                    return 1.0
+                    return 1.25
                 else:
-                    return 0.75
+                    return 1.0
             else:
                 if trained_steps < 0.5 * total_steps:
                     return 1.0

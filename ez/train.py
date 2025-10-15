@@ -20,7 +20,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 
 from pathlib import Path
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, open_dict
 
 from ez import agents
 from ez.utils.format import set_seed, init_logger
@@ -30,9 +30,17 @@ from ez.eval import eval
 
 @hydra.main(config_path='./config', config_name='config', version_base='1.1')
 def main(config):
+    # Allow experiment configs to add new keys before merging.
+    OmegaConf.set_struct(config, False)
+
     if config.exp_config is not None:
         exp_config = OmegaConf.load(config.exp_config)
-        config = OmegaConf.merge(config, exp_config)
+        OmegaConf.set_struct(exp_config, False)
+        # Merge experiment defaults first so CLI overrides stay in control.
+        config = OmegaConf.merge(exp_config, config)
+        if getattr(config, 'agent_name', None) is None and getattr(exp_config, 'agent_name', None) is not None:
+            with open_dict(config):
+                config.agent_name = exp_config.agent_name
 
     if config.ray.single_process:
         config.train.self_play_update_interval = 1

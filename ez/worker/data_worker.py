@@ -30,6 +30,20 @@ class DataWorker(Worker):
         self.traj_pool = []
         self.pool_size = 1
 
+        curriculum_cfg = getattr(config.env, 'curriculum', None)
+        self.curriculum_cfg = curriculum_cfg
+        self.curriculum_enabled = bool(curriculum_cfg and getattr(curriculum_cfg, 'enabled', False) and config.env.env == 'VGDL')
+        self.curriculum_configured = False
+        try:
+            start_level = int(getattr(curriculum_cfg, 'start_level', 0)) if self.curriculum_enabled else 0
+        except Exception:
+            start_level = 0
+        self.curriculum_level = max(0, start_level)
+        base_warmup = getattr(self.config.train, 'random_warmup_steps', 0)
+        self.initial_random_warmup_steps = max(0, int(base_warmup or 0))
+        level_warmup = getattr(self.config.train, 'new_level_random_steps', 0)
+        self.new_level_random_steps = max(0, int(level_warmup or 0))
+
         # time.sleep(10000)
 
     @torch.no_grad()
@@ -55,10 +69,11 @@ class DataWorker(Worker):
 
         envs = make_envs(config.env.env, config.env.game, num_envs, cur_seed + self.rank * num_envs,
                          save_path=video_path, episodic_life=config.env.episodic, **config.env)   # prev episodic_life=True
+        self._setup_curriculum(envs)
 
-        warmup_threshold = int(getattr(self.config.train, 'random_warmup_steps', 0) or 0)
-        warmup_threshold = max(0, warmup_threshold)
+        warmup_threshold = self.initial_random_warmup_steps
         approx_env_steps = 0
+        level_random_counters = [0 for _ in range(num_envs)]
 
         # initialization
         trained_steps = 0           # current training steps
@@ -68,11 +83,21 @@ class DataWorker(Worker):
         dones = [False for _ in range(num_envs)]
         traj_len = [0 for _ in range(num_envs)]
 
-        stack_obs_windows, game_trajs = self.agent.init_envs(envs, max_steps=self.config.data.trajectory_size)
+        stack_obs_windows = []
+        game_trajs = []
+        env_levels = []
+        for idx, env in enumerate(envs):
+            stacked_obs, traj, level = self._init_env_state(env, level=self.curriculum_level if self.curriculum_enabled else None)
+            stack_obs_windows.append(stacked_obs)
+            game_trajs.append(traj)
+            parsed_level = self._parse_level_value(level)
+            env_levels.append(parsed_level)
         prev_game_trajs = [None for _ in range(num_envs)]  # previous game trajectories (split a full game trajectory into several sub trajectories)
+        episode_win = [False for _ in range(num_envs)]
 
         # log data
         episode_return = [0. for _ in range(num_envs)]
+        prev_train_steps = -1
 
         # while loop for collecting data
         while not self.is_finished(trained_steps):
@@ -131,13 +156,22 @@ class DataWorker(Worker):
                 **config.mcts,  # pass mcts related params
                 **config.model,  # pass the value and reward support params
             )
-            use_random_policy = warmup_threshold > 0 and approx_env_steps < warmup_threshold
+            warmup_active = warmup_threshold > 0 and approx_env_steps < warmup_threshold
+            if warmup_active:
+                random_envs = [True for _ in range(num_envs)]
+            else:
+                random_envs = [level_random_counters[i] > 0 for i in range(num_envs)]
+            any_random = any(random_envs)
+            all_random = all(random_envs) if num_envs > 0 else False
+            action_space_size = self.config.env.action_space_size if self.config.env.env in ('Atari', 'VGDL') else None
 
-            if use_random_policy:
+            if all_random and action_space_size is not None:
                 best_actions = [envs[i].action_space.sample() for i in range(num_envs)]
                 r_values = np.zeros(num_envs, dtype=np.float32)
-                action_space_size = self.config.env.action_space_size
                 r_policies = np.full((num_envs, action_space_size), 1.0 / max(1, action_space_size), dtype=np.float32)
+                for idx in range(num_envs):
+                    if not warmup_active and level_random_counters[idx] > 0:
+                        level_random_counters[idx] -= 1
             else:
                 if self.config.env.env in ('Atari', 'VGDL'):
                     if self.config.mcts.use_gumbel:
@@ -151,9 +185,19 @@ class DataWorker(Worker):
                     r_values, r_policies, best_actions, sampled_actions, best_indexes, mcts_info = tree.search_continuous(
                             self.model, num_envs, states, values, policies, temperature=temperature,
                             # use_gumble_noise=True,
-                            input_noises=None 
+                            input_noises=None
                         )
-
+                best_actions = list(best_actions)
+                if any_random and action_space_size is not None:
+                    uniform_policy = np.full((action_space_size,), 1.0 / max(1, action_space_size), dtype=np.float32)
+                    for idx, need_random in enumerate(random_envs):
+                        if not need_random:
+                            continue
+                        best_actions[idx] = envs[idx].action_space.sample()
+                        r_values[idx] = 0.0
+                        r_policies[idx] = uniform_policy
+                        if not warmup_active and level_random_counters[idx] > 0:
+                            level_random_counters[idx] -= 1
             if self.rank == 0 and self.config.env.env == 'VGDL' and self.config.log.log_interval > 0 \
                     and collected_transitions % max(1, self.config.log.log_interval // max(1, num_envs)) == 0:
                 action_hist = np.bincount(np.asarray(best_actions, dtype=np.int64),
@@ -177,6 +221,16 @@ class DataWorker(Worker):
                 dones[i] = done
                 traj_len[i] += 1
                 episode_return[i] += info['raw_reward']
+                episode_win[i] = episode_win[i] or bool(info.get('win', False))
+                prev_level = env_levels[i]
+                current_level_val = info.get('level', prev_level)
+                parsed_level = self._parse_level_value(current_level_val)
+                if parsed_level is not None:
+                    if parsed_level != prev_level and self.new_level_random_steps > 0:
+                        level_random_counters[i] = self.new_level_random_steps
+                    env_levels[i] = parsed_level
+                elif self.curriculum_enabled:
+                    env_levels[i] = current_level_val
 
                 # save data to trajectory buffer
                 game_trajs[i].store_search_results(values[i], r_values[i], r_policies[i])
@@ -229,18 +283,149 @@ class DataWorker(Worker):
                         'self_play/temperature': temperature
                     })
 
+                    if self.curriculum_enabled:
+                        self._report_curriculum_episode(env_levels[i], episode_win[i], traj_len[i], episode_return[i], envs[i])
+
                     # reset the finished env and new a env
                     if self.config.env.env == 'DMC':
                         envs[i] = make_env(config.env.env, config.env.game, num_envs, cur_seed + self.rank * num_envs,
                              save_path=video_path, episodic_life=config.env.episodic, **config.env)
-                    stacked_obs, traj = self.agent.init_env(envs[i], max_steps=self.config.data.trajectory_size)
+                    prev_level_val = env_levels[i]
+                    stacked_obs, traj, level = self._init_env_state(envs[i], level=self.curriculum_level if self.curriculum_enabled else None)
                     stack_obs_windows[i] = stacked_obs
                     game_trajs[i] = traj
+                    parsed_level = self._parse_level_value(level)
+                    env_levels[i] = parsed_level
+                    if self.new_level_random_steps > 0 and parsed_level is not None:
+                        if parsed_level != prev_level_val:
+                            level_random_counters[i] = self.new_level_random_steps
+                        else:
+                            level_random_counters[i] = 0
+                    else:
+                        if parsed_level is None:
+                            level_random_counters[i] = 0
                     prev_game_trajs[i] = None
 
                     traj_len[i] = 0
                     episode_return[i] = 0
+                    episode_win[i] = False
                 collected_transitions += 1
+
+    def _setup_curriculum(self, envs):
+        if not self.curriculum_enabled or self.curriculum_configured:
+            return
+        num_levels = None
+        if envs:
+            primary = envs[0]
+            num_levels = getattr(primary, 'num_levels', getattr(primary, '_num_levels', None))
+        target_win_rate = getattr(self.curriculum_cfg, 'target_win_rate', 0.0) if self.curriculum_cfg else 0.0
+        min_episodes = getattr(self.curriculum_cfg, 'min_episodes', 0) if self.curriculum_cfg else 0
+        recent_window = getattr(self.curriculum_cfg, 'recent_window', None) if self.curriculum_cfg else None
+        max_episodes = getattr(self.curriculum_cfg, 'max_episodes', None) if self.curriculum_cfg else None
+        try:
+            min_episodes = int(min_episodes)
+        except Exception:
+            min_episodes = 0
+        try:
+            target_win_rate = float(target_win_rate)
+        except Exception:
+            target_win_rate = 0.0
+        try:
+            recent_window = int(recent_window) if recent_window is not None else None
+        except Exception:
+            recent_window = None
+        if recent_window is None or recent_window <= 0:
+            recent_window = min_episodes if min_episodes > 0 else 1
+        try:
+            max_episodes = int(max_episodes) if max_episodes is not None else None
+        except Exception:
+            max_episodes = None
+        if max_episodes is not None and max_episodes <= 0:
+            max_episodes = None
+        settings = {
+            'enabled': True,
+            'target_win_rate': target_win_rate,
+            'min_episodes': max(0, min_episodes),
+            'recent_window': max(1, recent_window),
+            'max_episodes': max_episodes,
+            'start_level': self.curriculum_level,
+            'num_levels': num_levels,
+        }
+        result = ray.get(self.storage.configure_curriculum.remote(settings))
+        if not result.get('enabled', False):
+            self.curriculum_enabled = False
+        else:
+            self.curriculum_level = int(result.get('current_level', self.curriculum_level))
+        self.curriculum_configured = True
+
+    @staticmethod
+    def _parse_level_value(level):
+        if level is None:
+            return None
+        try:
+            return int(level)
+        except (TypeError, ValueError):
+            try:
+                return int(float(level))
+            except (TypeError, ValueError):
+                return None
+
+    def _init_env_state(self, env, level=None):
+        if self.curriculum_enabled:
+            return self._reset_env_for_curriculum(env, level=level)
+        stacked_obs, traj = self.agent.init_env(env, max_steps=self.config.data.trajectory_size)
+        current_level = getattr(env, 'current_level', None)
+        if current_level is None and hasattr(env, 'lvl'):
+            current_level = getattr(env, 'lvl')
+        return stacked_obs, traj, current_level
+
+    def _reset_env_for_curriculum(self, env, level=None):
+        reset_kwargs = {}
+        if level is not None:
+            try:
+                reset_kwargs['options'] = {'level': int(level)}
+            except Exception:
+                reset_kwargs['options'] = {'level': 0}
+        try:
+            obs = env.reset(**reset_kwargs)
+        except TypeError:
+            reset_kwargs.pop('options', None)
+            obs = env.reset(**reset_kwargs)
+        if isinstance(obs, tuple):
+            obs = obs[0]
+        stacked_obs = [obs for _ in range(self.config.env.n_stack)]
+        traj = self.agent.new_game(max_steps=self.config.data.trajectory_size)
+        traj.init(stacked_obs)
+        current_level = getattr(env, 'current_level', None)
+        if current_level is None and hasattr(env, '_current_level'):
+            current_level = getattr(env, '_current_level')
+        if current_level is None and hasattr(env, 'lvl'):
+            current_level = getattr(env, 'lvl')
+        if current_level is None:
+            current_level = level
+        return stacked_obs, traj, current_level
+
+    def _report_curriculum_episode(self, level, win, steps, reward, env):
+        if not self.curriculum_enabled:
+            return None
+        num_levels = getattr(env, 'num_levels', getattr(env, '_num_levels', None))
+        result = ray.get(self.storage.report_curriculum_episode.remote(
+            level=0 if level is None else level,
+            win=bool(win),
+            steps=int(steps),
+            total_reward=float(reward),
+            num_levels=num_levels,
+        ))
+        log_scalars = result.get('log_scalars')
+        if log_scalars:
+            self.storage.add_log_scalar.remote(log_scalars)
+        new_level = result.get('current_level')
+        if new_level is not None:
+            self.curriculum_level = int(new_level)
+        if result.get('advanced') and self.rank == 0:
+            reason = result.get('reason') or ''
+            print(f"[Data worker] Curriculum advanced to level {self.curriculum_level} (reason={reason or 'threshold'}).")
+        return result
 
 
     def save_previous_trajectory(self, idx, prev_game_trajs, game_trajs, padding=True):
