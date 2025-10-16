@@ -45,6 +45,7 @@ ddp:
 ray:
   single_process: False
   object_store_memory: null
+  spill_dir: null
 
 # log
 log:

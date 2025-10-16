@@ -5,6 +5,7 @@
 
 import os
 import time
+import json
 os.environ["RAY_OBJECT_STORE_ALLOW_SLOW_STORAGE"] = "1"
 import ray
 import wandb
@@ -81,6 +82,19 @@ def _resolve_object_store_memory(config):
     return min(target, safety_cap)
 
 
+
+def _configure_object_spilling(config):
+    spill_dir = getattr(config.ray, "spill_dir", None)
+    if spill_dir is None or str(spill_dir).strip() == "":
+        spill_dir = Path(config.save_path) / "ray_spill"
+    spill_dir = Path(os.path.expanduser(os.path.expandvars(str(spill_dir)))).resolve()
+    spill_dir.mkdir(parents=True, exist_ok=True)
+    config_json = json.dumps({"type": "filesystem", "params": {"directory_path": str(spill_dir)}})
+    if "RAY_object_spilling_config" not in os.environ:
+        os.environ["RAY_object_spilling_config"] = config_json
+    return str(spill_dir)
+
+
 def start_ddp_trainer(rank, config):
     assert rank >= 0
     print(f'start {rank} train worker...')
@@ -88,6 +102,9 @@ def start_ddp_trainer(rank, config):
     manager = None
     num_gpus = torch.cuda.device_count()
     num_cpus = multiprocessing.cpu_count()
+    spill_dir = _configure_object_spilling(config)
+    if spill_dir:
+        print(f"Ray spilling directory: {spill_dir}")
     object_store_memory = _resolve_object_store_memory(config)
     print(f"Ray object_store_memory={object_store_memory / (1024 ** 3):.2f} GiB")
     ray.init(num_gpus=num_gpus, num_cpus=num_cpus, object_store_memory=object_store_memory)

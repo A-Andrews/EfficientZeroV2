@@ -24,10 +24,19 @@ env:
   curriculum:
     enabled: True
     start_level: 0
-    target_win_rate: 0.4
-    min_episodes: 50
-    recent_window: 40
-    max_episodes: 400
+    target_win_rate: 0.85
+    min_episodes: 200
+    recent_window: 160
+    max_episodes: 800
+
+  reward_shaping:
+    scale: 1.0
+    w_box: 3.0
+    w_mushroom: 2.0
+    w_key_dist: 1.5
+    w_goal_dist: 2.5
+    win_bonus: 5.0
+    step_penalty: -0.01
 
 rl:
   discount: 0.997
@@ -41,13 +50,13 @@ train:
   batch_size: 128
   training_steps: 100000
   offline_training_steps: 2000
-  start_transitions: 200
-  random_warmup_steps: 5000
-  new_level_random_steps: 5000
+  start_transitions: 2000
+  random_warmup_steps: 500
+  new_level_random_steps: 500
   eval_n_episode: 10
   eval_interval: 5000
-  self_play_update_interval: 10
-  reanalyze_update_interval: 20
+  self_play_update_interval: 5
+  reanalyze_update_interval: 10
   save_ckpt_interval: 1000
   mini_batch_size: 128
   reanalyze_ratio: 1.0
@@ -74,14 +83,13 @@ train:
   mixed_value_threshold: 5e2
 
 optimizer:
-  type: SGD
-  lr: 3e-4
+  type: Adam
+  lr: 1e-3
   lr_decay_type: none
   lr_warm_up: 0.01
   lr_decay_rate: 0.1
   lr_decay_steps: 100000
   weight_decay: 1e-4
-  momentum: 0.9
 
 priority:
   use_priority: True
@@ -94,7 +102,7 @@ data:
   buffer_size: 100000
   total_transitions: 100000
   top_transitions: 100000
-  trajectory_size: 40
+  trajectory_size: 160
   save_video: False
   save_as_dataset: False
 
@@ -134,13 +142,13 @@ model:
   lstm_horizon_len: 5
   policy_loss_type: reanalyze
   reward_support:
-    range: [-20, 20]
+    range: [-40, 40]
     scale: 1
     env: Atari
     bins: 41
     type: support
   value_support:
-    range: [-20, 20]
+    range: [-40, 40]
     scale: 1
     env: Atari
     bins: 41
@@ -158,3 +166,6 @@ log:
   ckpt_interval: 1000
   eval_interval: 5000
   save_dir: ./outputs/vgdl_bait
+
+ray:
+  object_store_memory: 412316860416  # 384 GiB

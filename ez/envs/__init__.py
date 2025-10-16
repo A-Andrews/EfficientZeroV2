@@ -76,6 +76,9 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
     level_mode = kwargs.get('level_mode', 'sequential')
     base_level_seed = kwargs.get('level_seed')
     fixed_level = kwargs.get('fixed_level')
+    enable_level_augmentation = kwargs.get('enable_level_augmentation', False)
+    level_augmentations = kwargs.get('level_augmentations')
+    reward_shaping = kwargs.get('reward_shaping')
 
     if base_level_seed is None:
         level_seed = seed
@@ -93,6 +96,9 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
         level_mode=level_mode,
         level_seed=level_seed,
         fixed_level=fixed_level,
+        enable_level_augmentation=enable_level_augmentation,
+        level_augmentations=level_augmentations,
+        reward_shaping=reward_shaping,
     )
 
     if save_path:
