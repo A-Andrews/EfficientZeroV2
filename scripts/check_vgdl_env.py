@@ -19,7 +19,7 @@ def main():
     env = VGDLAtariLikeEnv(
         game_name="VGDL_aliens",
         resize=84,
-        games_folder="all_games_original",
+        games_folder="all_games_recovered",
         rc_rl_root="/gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL",
     )
     reset_out = env.reset()

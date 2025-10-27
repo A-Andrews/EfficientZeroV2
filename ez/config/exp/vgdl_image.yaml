@@ -16,7 +16,7 @@ env:
   obs_shape: [1, 84, 84]
   obs_to_string: False
   resize: 84
-  games_folder: all_games
+  games_folder: all_games_recovered
   rc_rl_root: /gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL
   level_mode: sequential
   level_seed: 0
