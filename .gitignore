@@ -5,7 +5,10 @@ __pycache__/
 *.so
 *.o
 *.log
-
+logs/
+.venv/
+wandb
+cytree.cpp
 
 # Pycharm
 .idea/*

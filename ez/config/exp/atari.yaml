@@ -152,5 +152,5 @@ actors:
 
 # wandb
 wandb:
-  project: 'ez-v2-release'
+  project: 'ez-v2'
   tag: 'Atari'
