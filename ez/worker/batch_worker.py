@@ -797,13 +797,13 @@ class BatchWorker(Worker):
         # temperature
         temperature = self.agent.get_temperature(trained_steps=trained_steps) #* np.ones((batch_size, 1))
         tree = mcts.names[self.config.mcts.language](
-            num_actions=self.action_space_size if self.env == 'Atari' else self.config.mcts.num_sampled_actions,
+            num_actions=self.action_space_size if self.env in ('Atari', 'VGDL') else self.config.mcts.num_sampled_actions,
             discount=self.config.rl.discount,
             env=self.env,
             **self.config.mcts,  # pass mcts related params
             **self.config.model,  # pass the value and reward support params
         )
-        if self.env == 'Atari':
+        if self.env in ('Atari', 'VGDL'):
             if self.config.mcts.use_gumbel:
                 r_values, r_policies, best_actions, _ = tree.search(
                     self.model,
@@ -890,12 +890,12 @@ class BatchWorker(Worker):
         for i in range(length):
             if policy == 'search':
                 tree = mcts.names[self.config.mcts.language](
-                    num_actions=self.config.env.action_space_size if self.env == 'Atari' else self.config.mcts.num_top_actions,
+                    num_actions=self.config.env.action_space_size if self.env in ('Atari', 'VGDL') else self.config.mcts.num_top_actions,
                     discount=self.config.rl.discount,
                     **self.config.mcts,  # pass mcts related params
                     **self.config.model,  # pass the value and reward support params
                 )
-                if self.env == 'Atari':
+                if self.env in ('Atari', 'VGDL'):
                     if self.config.mcts.use_gumbel:
                         r_values, r_policies, best_actions, _ = tree.search(
                             self.model, len(states), states, values, policies,
@@ -915,7 +915,7 @@ class BatchWorker(Worker):
             if policy == 'search':
                 actions = torch.from_numpy(np.asarray(best_actions)).cuda().float()
             else:
-                if self.env == 'Atari':
+                if self.env in ('Atari', 'VGDL'):
                     actions = F.gumbel_softmax(policies, hard=True, dim=-1, tau=1e-4)
                     actions = actions.argmax(dim=-1)
                 else:
