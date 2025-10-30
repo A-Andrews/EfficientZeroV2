@@ -33,16 +33,6 @@ trap cleanup EXIT
 
 export OMP_NUM_THREADS=1 HYDRA_FULL_ERROR=1
 
-python - <<'PY'
-from ez.envs import make_vgdl
-env = make_vgdl("vgfmri4_bait", seed=0,
-                game_folder="/gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL/all_games_recovered",
-                max_episode_steps=1000, obs_shape=[3,96,96], n_skip=1)
-obs = env.reset()
-print("obs shape", obs.shape)
-env.close()
-PY
-
 python ez/train.py exp_config=ez/config/exp/vgdl.yaml "$@"
 
 echo "Done!"

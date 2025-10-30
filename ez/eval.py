@@ -190,9 +190,13 @@ def eval(
 
             action = best_actions[i]
             obs, reward, done, info = envs[i].step(action)
-            frames[i].append(
-                obs if config.env.image_based else envs[i].render(mode="rgb_array")
-            )
+            if config.env.env == "VGDL":
+                video_frame = envs[i].unwrapped.render(mode="rgb_array")
+            else:
+                video_frame = (
+                    obs if config.env.image_based else envs[i].render(mode="rgb_array")
+                )
+            frames[i].append(video_frame)
             # rewards[i].append(reward)
             rewards[i].append(info["raw_reward"])
             dones[i] = done
@@ -204,7 +208,9 @@ def eval(
                 config.env.env == "Atari"
             ):  # keep this as just Atari as VGDL does not have ALE
                 game_trajs[i].snapshot_lst.append(envs[i].ale.cloneState())
-            elif hasattr(envs[i], "physics"): # VGDL games dont have physics so this should prevent the video from failing
+            elif hasattr(
+                envs[i], "physics"
+            ):  # VGDL games dont have physics so this should prevent the video from failing
                 game_trajs[i].snapshot_lst.append(envs[i].physics.get_state())
             else:
                 game_trajs[i].snapshot_lst.append(None)
