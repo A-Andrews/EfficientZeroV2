@@ -238,7 +238,7 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
 
     # save video to given
     if save_path:
-        env = Monitor(env, directory=save_path, force=True)
+        env = Monitor(env, directory=save_path, force=True, video_callable=False)
 
     # your wrapper
     env = VGDLWrapper(env, obs_to_string=obs_to_string, clip_reward=clip_reward)

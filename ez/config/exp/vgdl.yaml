@@ -4,7 +4,7 @@ agent_name: vgdl_agent
 # env setting
 env:
   env: VGDL
-  game: vgfmri4_helper
+  game: vgfmri4_bait
   game_folder: /gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL/all_games_recovered
   base_seed: 0
   n_skip: 4
