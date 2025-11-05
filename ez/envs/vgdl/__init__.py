@@ -14,7 +14,9 @@ utils_path = os.path.join(RC_RL_ROOT, "utils.py")
 spec = importlib.util.spec_from_file_location("utils", utils_path)
 rc_utils = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rc_utils)
-sys.modules["utils"] = rc_utils  # ensures everyone sees the RC_RL version of utils to allow the game to be loaded
+sys.modules["utils"] = (
+    rc_utils  # ensures everyone sees the RC_RL version of utils to allow the game to be loaded
+)
 
 import random
 
@@ -36,12 +38,14 @@ class VGDLWrapper(BaseWrapper):
 
 class RawVGDL(gym.Env):
     """Adapter that exposes RC_RL.VGDLEnv through the Gym API (step/reset/action_space/etc.)."""
+
     metadata = {"render.modes": ["rgb_array"]}
 
     def __init__(self, game_name, game_folder, max_episode_steps):
         super().__init__()
         self._env = VGDLEnv(game_name=game_name, game_folder=game_folder)
-        self._env.set_level(0)
+        self._env.lvl = 2
+        self._env.set_level(2)
         self._max_episode_steps = max_episode_steps
         self._elapsed = 0
 

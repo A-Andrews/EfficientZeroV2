@@ -81,7 +81,7 @@ train:
   value_target: 'mixed'   # sarsa or search or mixed or max
   use_IQL: False
   IQL_weight: 0.7
-  start_use_mix_training_steps: 3e4
+  start_use_mix_training_steps: 1e6
   mixed_value_threshold: 5e3
 
 # self-play data collection
