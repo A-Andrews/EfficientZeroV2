@@ -279,5 +279,6 @@ def start_data_worker(rank, agent, replay_buffer, storage, config):
     Start a data worker. Call this method remotely.
     """
     data_worker = DataWorker.remote(rank, agent, replay_buffer, storage, config)
-    data_worker.run.remote()
+    run_ref = data_worker.run.remote()
     print(f'[Data worker] Start data worker {rank} at process {os.getpid()}.')
+    return data_worker, run_ref

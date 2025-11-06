@@ -1010,14 +1010,17 @@ def start_batch_worker(rank, agent, replay_buffer, storage, batch_storage, confi
     """
     worker = BatchWorker.remote(rank, agent, replay_buffer, storage, batch_storage, config)
     print(f"[Batch worker GPU] Starting batch worker GPU {rank} at process {os.getpid()}.")
-    worker.run.remote()
+    run_ref = worker.run.remote()
+    return worker, run_ref
 
 def start_batch_worker_cpu(rank, agent, replay_buffer, storage, prebatch_storage, config):
     worker = BatchWorker_CPU.remote(rank, agent, replay_buffer, storage, prebatch_storage, config)
     print(f"[Batch worker CPU] Starting batch worker CPU {rank} at process {os.getpid()}.")
-    worker.run.remote()
+    run_ref = worker.run.remote()
+    return worker, run_ref
 
 def start_batch_worker_gpu(rank, agent, replay_buffer, storage, prebatch_storage, batch_storage, config):
     worker = BatchWorker_GPU.remote(rank, agent, replay_buffer, storage, prebatch_storage, batch_storage, config)
     print(f"[Batch worker GPU] Starting batch worker GPU {rank} at process {os.getpid()}.")
-    worker.run.remote()
+    run_ref = worker.run.remote()
+    return worker, run_ref

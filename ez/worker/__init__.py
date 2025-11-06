@@ -78,11 +78,11 @@ def join_workers(worker_lst, server_lst):
     storage_server, replay_buffer_server, watchdog_server, smos_server = server_lst
 
     # wait for all workers to finish
-    for data_worker in data_workers:
-        data_worker.join()
-    for batch_worker in batch_workers:
-        batch_worker.join()
-    eval_worker.join()
+    for data_worker, ref in data_workers:
+        ray.get(ref)
+    for batch_worker, ref in batch_workers:
+        ray.get(ref)
+    ray.get(eval_worker[0][1])
     print(f'[main process] All workers have stopped.')
 
     # stop servers

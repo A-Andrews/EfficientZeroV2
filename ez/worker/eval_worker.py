@@ -72,4 +72,5 @@ class EvalWorker(Worker):
 def start_eval_worker(agent, replay_buffer, storage, config):
     # start data worker
     eval_worker = EvalWorker.remote(agent, replay_buffer, storage, config)
-    eval_worker.run.remote()
+    run_ref = eval_worker.run.remote()
+    return eval_worker, run_ref
