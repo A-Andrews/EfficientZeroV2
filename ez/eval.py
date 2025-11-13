@@ -38,6 +38,38 @@ from ez.utils.format import (
 )
 
 
+def _write_episode_video(
+    video_dir, frames, reward_trace, traj, config, episode_idx, suffix
+):
+    """Dump a single-episode video (no-op when recording is disabled)."""
+    if video_dir is None or not frames:
+        return
+
+    writer = imageio.get_writer(video_dir / f"epi_{episode_idx}_{suffix}.mp4")
+    overlay_rewards = list(reward_trace)
+    if overlay_rewards:
+        overlay_rewards[0] = sum(reward_trace)
+
+    for j, frame in enumerate(frames):
+        reward_value = overlay_rewards[j] if j < len(overlay_rewards) else 0.0
+        frame_to_write = frame
+        if config.env.game == "hopper_hop" and j < len(traj.action_lst):
+            pil_frame = Image.fromarray(frame)
+            draw = ImageDraw.Draw(pil_frame)
+            draw.text(
+                (5, 5),
+                f"mu={traj.action_lst[j][0]:.2f},{traj.action_lst[j][1]:.2f}",
+            )
+            draw.text(
+                (5, 20),
+                f"{traj.action_lst[j][2]:.2f},{traj.action_lst[j][3]:.2f}",
+            )
+            draw.text((5, 35), f"r={reward_value:.2f}")
+            frame_to_write = np.array(pil_frame)
+        writer.append_data(frame_to_write)
+    writer.close()
+
+
 @hydra.main(config_path="./config", config_name="config", version_base="1.1")
 def main(config):
     if config.exp_config is not None:
@@ -97,10 +129,12 @@ def eval(
     else:
         video_path = None
 
-    dones = np.array([False for _ in range(n_episodes)])
-    if use_pb:
-        pb = tqdm(np.arange(max_steps), leave=True)
-    ep_ori_rewards = np.zeros(n_episodes)
+    total_episodes = n_episodes
+    parallel_envs_cfg = getattr(config.eval, "parallel_envs", None)
+    parallel_envs = (
+        parallel_envs_cfg if parallel_envs_cfg is not None else total_episodes
+    )
+    parallel_envs = max(1, min(parallel_envs, total_episodes))
 
     # make env
     if max_steps is not None:
@@ -108,7 +142,7 @@ def eval(
     envs = make_envs(
         config.env.env,
         config.env.game,
-        n_episodes,
+        parallel_envs,
         config.env.base_seed,
         save_path=video_path,
         episodic_life=False,
@@ -121,11 +155,15 @@ def eval(
     # set infinity trajectory size
     [traj.set_inf_len() for traj in game_trajs]
 
+    frames = [[] for _ in range(parallel_envs)]
+    reward_traces = [[] for _ in range(parallel_envs)]
+    episode_returns = []
+    episodes_finished = 0
+    video_suffix = max_steps if max_steps is not None else config.env.max_episode_steps
+    pb = tqdm(total=total_episodes, leave=True) if use_pb else None
+
     # begin to evaluate
-    step = 0
-    frames = [[] for _ in range(n_episodes)]
-    rewards = [[] for _ in range(n_episodes)]
-    while not dones.all():
+    while episodes_finished < total_episodes:
         # debug
         if verbose:
             import ipdb
@@ -160,7 +198,7 @@ def eval(
             if config.mcts.use_gumbel:
                 r_values, r_policies, best_actions, _ = tree.search(
                     model,
-                    n_episodes,
+                    parallel_envs,
                     states,
                     values,
                     policies,
@@ -169,12 +207,12 @@ def eval(
                 )
             else:
                 r_values, r_policies, best_actions, _ = tree.search_ori_mcts(
-                    model, n_episodes, states, values, policies, use_noise=False
+                    model, parallel_envs, states, values, policies, use_noise=False
                 )
         else:
             r_values, r_policies, best_actions, _, _, _ = tree.search_continuous(
                 model,
-                n_episodes,
+                parallel_envs,
                 states,
                 values,
                 policies,
@@ -183,10 +221,13 @@ def eval(
                 add_noise=False,
             )
 
+        stop_eval = False
+
         # step action in environments
-        for i in range(n_episodes):
-            if dones[i]:
-                continue
+        for i in range(parallel_envs):
+            if episodes_finished >= total_episodes:
+                stop_eval = True
+                break
 
             action = best_actions[i]
             obs, reward, done, info = envs[i].step(action)
@@ -194,12 +235,9 @@ def eval(
                 video_frame = envs[i].unwrapped.render(mode="rgb_array")
             else:
                 video_frame = obs if config.env.image_based else envs[i].render(mode="rgb_array")
-            frames[i].append(
-                video_frame
-            )
-            # rewards[i].append(reward)
-            rewards[i].append(info["raw_reward"])
-            dones[i] = done
+            frames[i].append(video_frame)
+            reward_value = info.get("raw_reward", reward)
+            reward_traces[i].append(reward_value)
 
             # save data to trajectory buffer
             game_trajs[i].store_search_results(values[i], r_values[i], r_policies[i])
@@ -216,50 +254,50 @@ def eval(
             del stack_obs_windows[i][0]
             stack_obs_windows[i].append(obs)
 
-            # log
-            ep_ori_rewards[i] += info["raw_reward"]
-
-        step += 1
-        if use_pb:
-            pb.set_description(
-                "{} In step {}, take action {}, scores: {}(max: {}, min: {}) currently."
-                "".format(
-                    config.env.game,
-                    step,
-                    best_actions,
-                    ep_ori_rewards.mean(),
-                    ep_ori_rewards.max(),
-                    ep_ori_rewards.min(),
+            if done:
+                finished_traj = game_trajs[i]
+                total_reward = sum(reward_traces[i]) if reward_traces[i] else 0.0
+                episode_returns.append(total_reward)
+                _write_episode_video(
+                    video_path,
+                    frames[i],
+                    reward_traces[i],
+                    finished_traj,
+                    config,
+                    episodes_finished,
+                    video_suffix,
                 )
-            )
-            pb.update(1)
+                episodes_finished += 1
+
+                if pb:
+                    avg_reward = (
+                        float(np.mean(episode_returns)) if episode_returns else 0.0
+                    )
+                    pb.set_description(
+                        f"{config.env.game} eval {episodes_finished}/{total_episodes} avg={avg_reward:.3f}"
+                    )
+                    pb.update(1)
+
+                if episodes_finished >= total_episodes:
+                    stop_eval = True
+                    break
+
+                stacked_obs, traj = agent.init_env(envs[i], max_steps)
+                stack_obs_windows[i] = stacked_obs
+                game_trajs[i] = traj
+                game_trajs[i].set_inf_len()
+                frames[i] = []
+                reward_traces[i] = []
+
+        if stop_eval:
+            break
+
+    if pb:
+        pb.close()
 
     [env.close() for env in envs]
-    for i in range(n_episodes):
-        writer = imageio.get_writer(video_path / f"epi_{i}_{max_steps}.mp4")
-        rewards[i][0] = sum(rewards[i])
 
-        j = 0
-        for frame, reward in zip(frames[i], rewards[i]):
-            frame = Image.fromarray(frame)
-            draw = ImageDraw.Draw(frame)
-            if config.env.game == "hopper_hop":
-                draw.text(
-                    (5, 5),
-                    f"mu={game_trajs[i].action_lst[j][0]:.2f},{game_trajs[i].action_lst[j][1]:.2f}",
-                )
-                draw.text(
-                    (5, 20),
-                    f"{game_trajs[i].action_lst[j][2]:.2f},{game_trajs[i].action_lst[j][3]:.2f}",
-                )
-                draw.text((5, 35), f"r={reward:.2f}")
-
-            frame = np.array(frame)
-            writer.append_data(frame)
-            j += 1
-        writer.close()
-
-    return ep_ori_rewards
+    return np.asarray(episode_returns)
 
 
 if __name__ == "__main__":

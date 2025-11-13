@@ -61,6 +61,7 @@ eval:
   model_path: 'results/Atari/Breakout/EZ-V2-seed=0-2023-08-10 00:40:53/models/model_10000.p'
   model_path_new: 'results/Atari/Breakout/EZ-V2-seed=0-2023-08-10 00:40:53/models/model_80000.p'
   n_episodes: 10  # 10 for training, 1 for eval.sh
+  parallel_envs: null  # fallback to n_episodes when unset
   compare_value: False
   analysis_value: False
 

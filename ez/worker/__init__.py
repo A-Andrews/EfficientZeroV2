@@ -28,6 +28,15 @@ def start_workers(agent, manager, config):
     # global storage server
     storage_server = GlobalStorage.remote(agent.build_model(), agent.build_model(), agent.build_model())
     print('[main process] Global storage server has been started from main process.')
+    initial_level = getattr(config.env, 'initial_level', None)
+    curriculum_cfg = getattr(config.env, 'curriculum', None)
+    if initial_level is None and curriculum_cfg is not None:
+        try:
+            initial_level = curriculum_cfg.levels[0]
+        except AttributeError:
+            initial_level = curriculum_cfg.get('levels', [None])[0]
+    if initial_level is not None:
+        storage_server.update_curriculum_level.remote(int(initial_level))
 
     # batch queue
     batch_storage = RayQueue(15, 20)
@@ -91,4 +100,3 @@ def join_workers(worker_lst, server_lst):
     watchdog_server.terminate()
     smos_server.stop()
     print(f'[main process] All servers have stopped.')
-

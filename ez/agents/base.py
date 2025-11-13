@@ -245,6 +245,11 @@ class Agent:
                 # self-play statistics
                 eval_scalar, remote_scalar, remote_distribution = ray.get(storage.get_log.remote())
                 log_scalars.update(remote_scalar)
+
+                max_curriculum_level = ray.get(storage.get_curriculum_level.remote())
+                if max_curriculum_level is not None:
+                    log_scalars["curriculum/max_level"] = max_curriculum_level
+
                 log_distribution.update(remote_distribution)
 
                 if remote_scalar.get('self_play/episode_return'):

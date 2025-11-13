@@ -230,6 +230,12 @@ namespace tree{
     }
 
     CNode* CNode::get_child(int action){
+        if(action < 0 || action >= int(this->children_idx.size())){
+            throw std::out_of_range(
+                "CNode::get_child invalid index: " + std::to_string(action) +
+                ", children size=" + std::to_string(this->children_idx.size()) +
+                ", depth=" + std::to_string(this->depth));
+        }
         int index = this->children_idx[action];
         return &((*(this->ptr_node_pool))[index]);
     }
@@ -268,8 +274,13 @@ namespace tree{
     }
 
     int CNode::do_equal_visit(int num_simulations){
+        if(this->selected_children_idx.empty()){
+            for(int action = 0; action < this->num_actions; ++action){
+                this->selected_children_idx.push_back(action);
+            }
+        }
         int min_visit_count = num_simulations + 1;
-        int action = -1;
+        int action = this->selected_children_idx[0];
 //        printf("selected_size=%d\n", this->selected_children_idx.size());
         for(int selected_child_idx : this->selected_children_idx){
 //            printf("%d ", selected_child_idx);
@@ -538,16 +549,22 @@ namespace tree{
         for(int action : selected_children_idx){
             children_scores.push_back(gumble_noise[action] + children_prior[action] + transformed_completed_Qs[action]);
         }
+        if(children_scores.empty()){
+            throw std::runtime_error("sequential_halving: no selected children to score");
+        }
         std::vector<size_t> idx(children_scores.size());
         std::iota(idx.begin(), idx.end(), 0);
         std::sort(idx.begin(), idx.end(), [&children_scores](size_t index_1, size_t index_2) {return children_scores[index_1] > children_scores[index_2]; });
 
         root->selected_children_idx.clear();
-        for(int i = 0; i < current_num_top_actions; ++i){
+        int selectable = std::min(current_num_top_actions, int(idx.size()));
+        for(int i = 0; i < selectable; ++i){
             root->selected_children_idx.push_back(selected_children_idx[idx[i]]);
         }
 
-
+        if(root->selected_children_idx.empty()){
+            throw std::runtime_error("sequential_halving: no child selected after pruning");
+        }
         int best_action = root->selected_children_idx[0];
         return best_action;
     }
@@ -568,7 +585,11 @@ namespace tree{
                 std::sort(idx.begin(), idx.end(), [&children_scores](size_t index_1, size_t index_2) {return children_scores[index_1] > children_scores[index_2]; });
 
                 node->selected_children_idx.clear();
-                for(int action = 0; action < current_num_top_actions; ++action){
+                int selectable = std::min(current_num_top_actions, node->num_actions);
+                if(selectable <= 0){
+                    throw std::runtime_error("select_action: root has no selectable children");
+                }
+                for(int action = 0; action < selectable; ++action){
                     node->selected_children_idx.push_back(idx[action]);
                 }
             }
@@ -591,9 +612,9 @@ namespace tree{
 
 
     void c_batch_traverse(CRoots *roots, tools::CMinMaxStatsList *min_max_stats_lst, CSearchResults &results, int num_simulations, int simulation_idx, const std::vector<std::vector<float>>& gumble_noise, int current_num_top_actions){
-        int last_action = -1;
         results.search_lens = std::vector<int>();
         for(int i = 0; i < results.num; ++i){
+            int last_action = -1;
             CNode *node = &(roots->roots[i]);
             int search_len = 0;
             results.search_paths[i].push_back(node);
@@ -607,6 +628,9 @@ namespace tree{
                 search_len += 1;
             }
 
+            if(results.search_paths[i].size() < 2){
+                throw std::runtime_error("c_batch_traverse: search path too short");
+            }
             CNode* parent = results.search_paths[i][results.search_paths[i].size() - 2];
 
             results.hidden_state_index_x_lst.push_back(parent->hidden_state_index_x);

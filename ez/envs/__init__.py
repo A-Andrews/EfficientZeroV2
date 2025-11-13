@@ -222,9 +222,15 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
     obs_shape = kwargs.get("obs_shape", [3, 96, 96])
     max_episode_steps = kwargs.get("max_episode_steps", 1000)
     clip_reward = kwargs.get("clip_reward")
+    curriculum_cfg = kwargs.get("curriculum")
+    initial_level = kwargs.get("initial_level")
 
     env = RawVGDL(
-        game_name=env_id, game_folder=game_folder, max_episode_steps=max_episode_steps
+        game_name=env_id,
+        game_folder=game_folder,
+        max_episode_steps=max_episode_steps,
+        initial_level=initial_level,
+        curriculum_config=curriculum_cfg,
     )
 
     if skip > 1:

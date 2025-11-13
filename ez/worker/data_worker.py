@@ -193,11 +193,24 @@ class DataWorker(Worker):
                         self.put_trajs(game_trajs[i])
 
                     # log
-                    self.storage.add_log_scalar.remote({
-                        'self_play/episode_len': traj_len[i],
-                        'self_play/episode_return': episode_return[i],
-                        'self_play/temperature': temperature
-                    })
+                    log_payload = {
+                        "self_play/episode_len": traj_len[i],
+                        "self_play/episode_return": episode_return[i],
+                        "self_play/temperature": temperature,
+                        "self_play/level": info.get("level"),
+                    }
+                    curriculum_info = info.get("curriculum")
+                    if curriculum_info:
+                        level = curriculum_info.get("level")
+                        if level is not None:
+                            log_payload["self_play/curriculum_level"] = level
+                            log_payload["curriculum/level"] = level
+                        if curriculum_info.get("changed") and curriculum_info.get("reason") == "advance":
+                            log_payload["curriculum/advanced"] = 1.0
+                            self.storage.update_curriculum_level.remote(int(curriculum_info["level"]))
+                        else:
+                            log_payload["curriculum/advanced"] = 0.0
+                    self.storage.add_log_scalar.remote(log_payload)
 
                     # reset the finished env and new a env
                     if self.config.env.env == 'DMC':

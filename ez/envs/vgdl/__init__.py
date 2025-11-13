@@ -23,6 +23,7 @@ import random
 import gym
 import numpy as np
 from VGDLEnv import VGDLEnv
+from ez.envs.vgdl.curriculum import VGDLLevelCurriculum
 
 from ..base import BaseWrapper
 
@@ -41,11 +42,26 @@ class RawVGDL(gym.Env):
 
     metadata = {"render.modes": ["rgb_array"]}
 
-    def __init__(self, game_name, game_folder, max_episode_steps):
+    def __init__(self, game_name, game_folder, max_episode_steps, initial_level=None,
+        curriculum_config=None,):
         super().__init__()
         self._env = VGDLEnv(game_name=game_name, game_folder=game_folder)
-        self._env.lvl = 2
-        self._env.set_level(2)
+        self._levels = sorted(self._env.env_list.keys())
+        if not self._levels:
+            raise ValueError(f"No VGDL levels found for {game_name} in {game_folder}")
+        self._curriculum = (
+            VGDLLevelCurriculum.from_dict(curriculum_config, self._levels)
+            if curriculum_config
+            else None
+        )
+        if initial_level is not None and initial_level in self._levels:
+            self._current_level = initial_level
+        elif self._curriculum:
+            self._current_level = self._curriculum.current_level
+        else:
+            self._current_level = self._clip_level(10)
+
+        self._set_level(self._current_level)
         self._max_episode_steps = max_episode_steps
         self._elapsed = 0
 
@@ -64,20 +80,32 @@ class RawVGDL(gym.Env):
     def reset(self, *, seed=None, options=None):
         if seed is not None:
             self.seed(seed)
+        if self._curriculum:
+            stats = self._curriculum.maybe_transition()
+            if stats["changed"]:
+                self._set_level(stats["level"])
         self._env.reset()
         self._elapsed = 0
-        return np.asarray(self._env.render(), dtype=np.uint8)
-
+        obs = np.asarray(self._env.render(), dtype=np.uint8)
+        self._last_info = {"level": self._current_level}
+        if self._curriculum:
+            self._last_info["curriculum"] = stats
+        return obs
+    
     def step(self, action):
-        """VGDL returns (reward, ended, win); convert to Gym’s (obs, reward, done, info)"""
         reward, ended, win = self._env.step(action)
         self._elapsed += 1
         obs = np.asarray(self._env.render(), dtype=np.uint8)
         truncated = self._elapsed >= self._max_episode_steps
         done = ended or truncated
-        info = {"win": bool(win)}
+        info = {"win": bool(win), "level": self._current_level}
         if truncated and not ended:
             info["TimeLimit.truncated"] = True
+        if self._curriculum and done:
+            self._curriculum.record_episode(bool(win))
+            info["curriculum"] = self._curriculum.maybe_transition()
+            if info["curriculum"]["changed"]:
+                self._set_level(info["curriculum"]["level"])
         return obs, reward, done, info
 
     def render(self, mode="rgb_array"):
@@ -95,3 +123,11 @@ class RawVGDL(gym.Env):
         if hasattr(self._env, "close"):
             self._env.close()
         super().close()
+
+    def _clip_level(self, level):
+        return max(self._levels[0], min(self._levels[-1], level))
+
+    def _set_level(self, level):
+        self._current_level = self._clip_level(level)
+        self._env.lvl = self._current_level
+        self._env.set_level(self._current_level)

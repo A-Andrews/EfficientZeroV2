@@ -9,6 +9,7 @@ import ray
 import torch
 import logging
 import numpy as np
+from omegaconf import open_dict
 
 from pathlib import Path
 from torch.cuda.amp import autocast as autocast
@@ -39,6 +40,10 @@ class EvalWorker(Worker):
                 episodes += 1
                 model.set_weights(ray.get(self.storage.get_weights.remote('self_play')))
                 model.eval()
+                max_curriculum_level = ray.get(self.storage.get_curriculum_level.remote())
+                if max_curriculum_level is not None:
+                    with open_dict(self.config):
+                        self.config.env.initial_level = int(max_curriculum_level)
 
                 save_path = Path(self.config.save_path) / 'evaluation' / 'step_{}'.format(counter)
                 save_path.mkdir(parents=True, exist_ok=True)

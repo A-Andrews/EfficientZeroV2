@@ -24,6 +24,7 @@ class GlobalStorage:
         self.eval_counter = 0
         self.best_score = - np.inf
         self.start = False
+        self.max_curriculum_level = None
         # self.batch = None
 
     def get_weights(self, model_name):
@@ -78,6 +79,16 @@ class GlobalStorage:
                 self.log_distribution[key] = []
 
             self.log_distribution[key] += val.tolist()
+
+    def update_curriculum_level(self, level):
+        if level is None:
+            return
+        level = int(level)
+        if self.max_curriculum_level is None or level > self.max_curriculum_level:
+            self.max_curriculum_level = level
+
+    def get_curriculum_level(self):
+        return self.max_curriculum_level
 
     def get_log(self):
         # for scalar
