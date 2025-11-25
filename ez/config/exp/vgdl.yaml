@@ -4,7 +4,7 @@ agent_name: vgdl_agent
 # env setting
 env:
   env: VGDL
-  game: vgfmri4_bait
+  game: vgfmri4_chase
   game_folder: /gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL/all_games_recovered
   base_seed: 0
   n_skip: 4
@@ -17,7 +17,7 @@ env:
   episodic: True
   initial_level: 0
   curriculum:
-    levels: [0, 1, 2]
+    levels: [0, 1, 2, 3, 4, 5, 6]
     min_episodes: 10
     win_threshold: 0.7
     fallback_threshold: 0.2
