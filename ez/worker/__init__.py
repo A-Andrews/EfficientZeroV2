@@ -95,8 +95,8 @@ def join_workers(worker_lst, server_lst):
     print(f'[main process] All workers have stopped.')
 
     # stop servers
-    storage_server.terminate()
-    replay_buffer_server.terminate()
-    watchdog_server.terminate()
+    for actor in (storage_server, replay_buffer_server, watchdog_server):
+        # Ray actors do not expose terminate(); kill them explicitly instead.
+        ray.kill(actor, no_restart=True)
     smos_server.stop()
     print(f'[main process] All servers have stopped.')

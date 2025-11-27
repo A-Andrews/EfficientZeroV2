@@ -34,6 +34,10 @@ class RayQueue(object):
     def get_len(self):
         return self.queue.qsize()
 
+    def stop(self):
+        """Compatibility hook so callers can treat this like a server."""
+        return
+
 
 class PreQueue(object):
     def __init__(self, threshold=15, size=20):
@@ -443,4 +447,3 @@ if __name__=='__main__':
     print(f'support={vec}, support2={vec2}')
     print(f'input={value}')
     print(f'val={val}')
-

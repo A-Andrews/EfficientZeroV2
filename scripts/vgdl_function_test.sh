@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --partition=gpu_short
+#SBATCH --partition=gpu_long
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=vgdl_function_test
 #SBATCH --output=logs/vgdl_function_test/%x_%j.out
