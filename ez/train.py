@@ -21,6 +21,7 @@ import torch.multiprocessing as mp
 
 from pathlib import Path
 from omegaconf import OmegaConf
+from hydra.core.hydra_config import HydraConfig
 
 from ez import agents
 from ez.utils.format import set_seed, init_logger
@@ -30,9 +31,29 @@ from ez.eval import eval
 
 @hydra.main(config_path='./config', config_name='config', version_base='1.1')
 def main(config):
+    overrides = []
+    try:
+        overrides = list(HydraConfig.get().overrides.task)
+    except Exception:
+        overrides = []
+    sanitized_overrides = []
+    for item in overrides:
+        if not item:
+            continue
+        candidate = item.lstrip('+')
+        if '/' in candidate:
+            continue
+        sanitized_overrides.append(candidate)
+
     if config.exp_config is not None:
         exp_config = OmegaConf.load(config.exp_config)
+        OmegaConf.set_struct(config, False)
+        OmegaConf.set_struct(exp_config, False)
         config = OmegaConf.merge(config, exp_config)
+        if sanitized_overrides:
+            override_cfg = OmegaConf.from_dotlist(sanitized_overrides)
+            config = OmegaConf.merge(config, override_cfg)
+        OmegaConf.set_struct(config, True)
 
     if config.ray.single_process:
         config.train.self_play_update_interval = 1
