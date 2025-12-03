@@ -681,7 +681,8 @@ class Agent:
 def train_ddp(agent, rank, replay_buffer, storage, batch_storage, logger):
     print(f'training_rank={rank}')
     if rank == 0:
-        wandb_name = agent.config.env.game + '-' + agent.config.wandb.tag
+        timestamp = time.strftime('%Y%m%d-%H%M%S')
+        wandb_name = f"{agent.config.env.game}-{agent.config.wandb.tag}-{timestamp}"
         logger = wandb.init(
             name=wandb_name,
             project=agent.config.wandb.project,

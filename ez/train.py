@@ -82,7 +82,8 @@ def start_ddp_trainer(rank, config):
     if rank == 0:
         # wandb logger
         if config.ddp.training_size == 1:
-            wandb_name = config.env.game + '-' + config.wandb.tag
+            timestamp = time.strftime('%Y%m%d-%H%M%S')
+            wandb_name = f"{config.env.game}-{config.wandb.tag}-{timestamp}"
             print(f'wandb_name={wandb_name}')
             logger = wandb.init(
                 name=wandb_name,
