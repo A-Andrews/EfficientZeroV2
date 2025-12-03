@@ -8,7 +8,7 @@
 #   WANDB_ENTITY    (default: empty)
 #   WANDB_TAGS      (default: "vgdl,eval")
 
-#SBATCH --partition=gpu_long
+#SBATCH --partition=gpu_short
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=vgdl_eval_levels
 #SBATCH --output=logs/vgdl_eval_levels/%x_%j.out
