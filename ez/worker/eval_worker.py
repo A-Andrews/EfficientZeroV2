@@ -48,8 +48,16 @@ class EvalWorker(Worker):
                 save_path = Path(self.config.save_path) / 'evaluation' / 'step_{}'.format(counter)
                 save_path.mkdir(parents=True, exist_ok=True)
                 model_path = Path(self.config.save_path) / 'model.p'
-                eval_score = eval(self.agent, model, self.config.train.eval_n_episode, save_path, self.config,
-                                       max_steps=eval_steps, use_pb=False, verbose=0)
+                eval_score, _ = eval(
+                    self.agent,
+                    model,
+                    self.config.train.eval_n_episode,
+                    save_path,
+                    self.config,
+                    max_steps=eval_steps,
+                    use_pb=False,
+                    verbose=0,
+                )
                 mean_score = eval_score.mean()
                 std_score = eval_score.std()
                 min_score = eval_score.min()

@@ -1,0 +1,8 @@
+{
+  "vgfmri4_avoidgeorge": "/gpfs3/well/costa/users/zqa082/brain-wide_strategies/EfficientZeroV2/results/VGDL/vgfmri4_avoidgeorge/EZ-V2-seed=0-2025-12-05 04:47:24/models/model_110000.p",
+  "vgfmri4_bait": "/gpfs3/well/costa/users/zqa082/brain-wide_strategies/EfficientZeroV2/results/VGDL/vgfmri4_bait/EZ-V2-seed=0-2025-12-04 10:52:29/models/model_100000.p",
+  "vgfmri4_chase": "/gpfs3/well/costa/users/zqa082/brain-wide_strategies/EfficientZeroV2/results/VGDL/vgfmri4_chase/EZ-V2-seed=0-2025-11-27 13:30:16/models/model_110000.p",
+  "vgfmri4_helper": "/gpfs3/well/costa/users/zqa082/brain-wide_strategies/EfficientZeroV2/results/VGDL/vgfmri4_helper/EZ-V2-seed=0-2025-11-27 17:47:18/models/model_110000.p",
+  "vgfmri4_lemmings": "/gpfs3/well/costa/users/zqa082/brain-wide_strategies/EfficientZeroV2/results/VGDL/vgfmri4_lemmings/EZ-V2-seed=0-2025-11-27 17:47:18/models/model_110000.p",
+  "vgfmri4_zelda": "/gpfs3/well/costa/users/zqa082/brain-wide_strategies/EfficientZeroV2/results/VGDL/vgfmri4_zelda/EZ-V2-seed=0-2025-11-26 11:40:46/models/model_110000.p"
+}

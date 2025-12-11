@@ -103,7 +103,7 @@ def main(config):
     n_episodes = 1
     save_path = Path(config.eval.save_path)
 
-    eval(
+    _, _ = eval(
         agent,
         model,
         n_episodes,
@@ -117,7 +117,15 @@ def main(config):
 
 @torch.no_grad()
 def eval(
-    agent, model, n_episodes, save_path, config, max_steps=None, use_pb=False, verbose=0
+    agent,
+    model,
+    n_episodes,
+    save_path,
+    config,
+    max_steps=None,
+    use_pb=False,
+    verbose=0,
+    collect_action_counts=True,
 ):
     model.cuda()
     model.eval()
@@ -148,6 +156,10 @@ def eval(
         episodic_life=False,
         **config.env,
     )
+
+    action_counts = None
+    if collect_action_counts and config.env.env in ("Atari", "VGDL"):
+        action_counts = np.zeros(config.env.action_space_size, dtype=np.int64)
 
     # initialization
     stack_obs_windows, game_trajs = agent.init_envs(envs, max_steps)
@@ -230,6 +242,8 @@ def eval(
                 break
 
             action = best_actions[i]
+            if action_counts is not None:
+                action_counts[action] += 1
             obs, reward, done, info = envs[i].step(action)
             if config.env.env == "VGDL":
                 video_frame = envs[i].unwrapped.render(mode="rgb_array")
@@ -296,6 +310,9 @@ def eval(
         pb.close()
 
     [env.close() for env in envs]
+
+    if collect_action_counts:
+        return np.asarray(episode_returns), action_counts
 
     return np.asarray(episode_returns)
 

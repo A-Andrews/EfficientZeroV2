@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+import numpy as np
 import ray
 import torch
 import wandb
@@ -154,13 +155,18 @@ def main():
     model.load_state_dict(state_dict)
 
     results = {}
+    overall_action_counts = (
+        np.zeros(cfg.env.action_space_size, dtype=np.int64)
+        if cfg.env.env in ("VGDL", "Atari")
+        else None
+    )
     try:
         for level in levels:
             with open_dict(cfg):
                 cfg.env.initial_level = int(level)
             level_save = Path(cfg.eval.save_path) / f"level_{level}"
             level_save.mkdir(parents=True, exist_ok=True)
-            scores = eval_fn(
+            scores, action_counts = eval_fn(
                 agent,
                 model,
                 args.episodes,
@@ -177,6 +183,18 @@ def main():
                 "max": float(scores.max()),
             }
             results[level] = stats
+            action_logs = {}
+            if action_counts is not None:
+                level_total = int(action_counts.sum())
+                action_logs["actions/total"] = level_total
+                for action_id, count in enumerate(action_counts):
+                    action_logs[f"actions/count/{action_id}"] = int(count)
+                    action_logs[f"actions/freq/{action_id}"] = (
+                        float(count) / level_total if level_total else 0.0
+                    )
+                if overall_action_counts is not None:
+                    overall_action_counts += action_counts
+
             wandb.log(
                 {
                     "level": level,
@@ -184,6 +202,7 @@ def main():
                     "return_std": stats["std"],
                     "return_min": stats["min"],
                     "return_max": stats["max"],
+                    **action_logs,
                 }
             )
 
@@ -192,6 +211,14 @@ def main():
             "overall_min": float(min(v["min"] for v in results.values())),
             "overall_max": float(max(v["max"] for v in results.values())),
         }
+        if overall_action_counts is not None:
+            overall_total = int(overall_action_counts.sum())
+            overall["actions_overall/total"] = overall_total
+            for action_id, count in enumerate(overall_action_counts):
+                overall[f"actions_overall/count/{action_id}"] = int(count)
+                overall[f"actions_overall/freq/{action_id}"] = (
+                    float(count) / overall_total if overall_total else 0.0
+                )
         wandb.log(overall)
     finally:
         run.finish(quiet=True)
