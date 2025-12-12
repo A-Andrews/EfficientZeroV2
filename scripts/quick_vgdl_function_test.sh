@@ -35,12 +35,12 @@ trap cleanup EXIT
 export OMP_NUM_THREADS=1 HYDRA_FULL_ERROR=1
 
 python ez/train.py exp_config=ez/config/exp/vgdl.yaml \
-  train.training_steps=10000 \
-  train.offline_training_steps=2000 \
-  train.eval_interval=2000 \
-  train.save_ckpt_interval=2000 \
-  data.total_transitions=20000 \
-  data.top_transitions=40000 \
+  +train.training_steps=10000 \
+  +train.offline_training_steps=2000 \
+  +train.eval_interval=2000 \
+  +train.save_ckpt_interval=2000 \
+  +data.total_transitions=20000 \
+  +data.top_transitions=40000 \
   "$@"
 
 echo "Done!"
