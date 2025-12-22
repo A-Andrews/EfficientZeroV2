@@ -8,10 +8,10 @@ set -euo pipefail
 
 games=(
   vgfmri4_avoidgeorge
-  # vgfmri4_bait
-  # vgfmri4_chase
-  # vgfmri4_helper
-  # vgfmri4_lemmings
+  vgfmri4_bait
+  vgfmri4_chase
+  vgfmri4_helper
+  vgfmri4_lemmings
   vgfmri4_zelda
 )
 

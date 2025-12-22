@@ -648,8 +648,7 @@ class PyMCTS(MCTS):
         ready = (simulation_idx + 1) >= self.visit_num_for_next_phase
         if ready:
             self.current_phase += 1
-            self.current_num_top_actions //= 2
-            assert self.current_num_top_actions == self.num_top_actions // (2 ** self.current_phase)
+            self.current_num_top_actions = max(1, self.current_num_top_actions // 2)
 
             # update the total visit num for the next phase
             n = self.num_simulations

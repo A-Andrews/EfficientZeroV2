@@ -4,7 +4,7 @@ agent_name: vgdl_agent
 # env setting
 env:
   env: VGDL
-  game: vgfmri4_bait
+  game: vgfmri4_avoidgeorge
   game_folder: /gpfs3/well/costa/users/zqa082/brain-wide_strategies/RC_RL/all_games_recovered
   base_seed: 0
   n_skip: 4
@@ -12,14 +12,15 @@ env:
   max_episode_steps: 3000 # 27000 for final test
   gray_scale: False
   image_based: True
-  clip_reward: True
+  clip_reward: False    # keep shaped rewards for denser feedback
+  reward_from_score: True  # use score deltas to reduce sparsity
   obs_shape: [3, 96, 96]
   episodic: True
-  initial_level: 0
+  initial_level: 9
   curriculum:
-    levels: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    levels: [9, 10, 11, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8]
     min_episodes: 10
-    win_threshold: 0.7
+    win_threshold: 0.5
     fallback_threshold: 0.2
     patience: 20
 
@@ -53,7 +54,7 @@ priority:
 train:
   load_model_path: ''
   batch_size: 256
-  training_steps: 100000        # 100 * 1000
+  training_steps: 200000        # 100 * 1000
   offline_training_steps: 20000 # 20 * 1000
   start_transitions: 2000       # 2 * 1000
 
@@ -76,7 +77,7 @@ train:
   entropy_coeff: 5e-3
 
   max_grad_norm: 5
-  change_temperature: True
+  change_temperature: False
 
   periodic_reset: False
   value_reanalyze: False

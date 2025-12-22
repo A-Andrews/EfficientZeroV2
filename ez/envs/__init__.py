@@ -224,6 +224,8 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
     clip_reward = kwargs.get("clip_reward")
     curriculum_cfg = kwargs.get("curriculum")
     initial_level = kwargs.get("initial_level")
+    reward_from_score = kwargs.get("reward_from_score", False)
+    level_aliases = kwargs.get("level_aliases")
 
     env = RawVGDL(
         game_name=env_id,
@@ -231,6 +233,8 @@ def make_vgdl(game_name, seed, save_path=None, **kwargs):
         max_episode_steps=max_episode_steps,
         initial_level=initial_level,
         curriculum_config=curriculum_cfg,
+        reward_from_score=reward_from_score,
+        level_aliases=level_aliases,
     )
 
     if skip > 1:

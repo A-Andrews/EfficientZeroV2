@@ -62,13 +62,27 @@ class GlobalStorage:
 
     def add_log_scalar(self, dic):
         for key, val in dic.items():
+            # coerce numeric-like strings (e.g., "00") to int, skip non-numeric values
+            if isinstance(val, str):
+                if val.isdigit():
+                    val = int(val)
+                else:
+                    continue
+            if not isinstance(val, (int, float, np.integer, np.floating)):
+                continue
             if key not in self.log_scalar.keys():
                 self.log_scalar[key] = []
-
             self.log_scalar[key].append(val)
 
     def add_eval_log_scalar(self, dic):
         for key, val in dic.items():
+            if isinstance(val, str):
+                if val.isdigit():
+                    val = int(val)
+                else:
+                    continue
+            if not isinstance(val, (int, float, np.integer, np.floating)):
+                continue
             if key not in self.eval_log_scalar.keys():
                 self.eval_log_scalar[key] = []
             self.eval_log_scalar[key].append(val)

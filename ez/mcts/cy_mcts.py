@@ -564,8 +564,8 @@ class CyMCTS(MCTS):
         if ready:
             # change the current top action num from m -> m / 2
             self.current_phase += 1
-            self.current_num_top_actions = self.current_num_top_actions // 2
-            assert self.current_num_top_actions == self.num_top_actions // (2 ** self.current_phase)
+            # When num_top_actions is not a power of two, keep at least one action to avoid invalid pruning.
+            self.current_num_top_actions = max(1, self.current_num_top_actions // 2)
 
             # update the total visit num for the next phase
             n = self.num_simulations

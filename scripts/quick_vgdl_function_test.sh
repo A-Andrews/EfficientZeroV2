@@ -6,7 +6,7 @@
 #SBATCH --error=logs/quick_vgdl_function_test/%x_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem=60G
+#SBATCH --mem=70G
 
 echo "------------------------------------------------"
 echo "Run on host: "`hostname`
@@ -35,12 +35,17 @@ trap cleanup EXIT
 export OMP_NUM_THREADS=1 HYDRA_FULL_ERROR=1
 
 python ez/train.py exp_config=ez/config/exp/vgdl.yaml \
-  +train.training_steps=10000 \
-  +train.offline_training_steps=2000 \
-  +train.eval_interval=2000 \
-  +train.save_ckpt_interval=2000 \
+  +train.training_steps=40000 \
+  +train.offline_training_steps=4000 \
+  +train.eval_interval=4000 \
+  +train.save_ckpt_interval=4000 \
   +data.total_transitions=20000 \
   +data.top_transitions=40000 \
+  +env.n_skip=1 \
+  +env.max_episode_steps=800 \
+  +env.curriculum.levels=[11,12,13,2] \
+  +mcts.num_simulations=50 \
+  +env.initial_level=11 \
   "$@"
 
 echo "Done!"

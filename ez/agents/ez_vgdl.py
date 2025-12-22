@@ -47,19 +47,24 @@ class EZVGDLAgent(Agent):
 
         with open_dict(self.config):
             self.config.env.action_space_size = action_space_size
-            self.config.mcts.num_top_actions = min(action_space_size, self.config.mcts.num_top_actions)
             self.config.env.obs_shape[0] = obs_channel
             self.config.rl.discount **= self.config.env.n_skip
             self.config.model.reward_support.size = reward_size
             self.config.model.value_support.size = value_size
 
-            if action_space_size < 4:
-                self.config.mcts.num_top_actions = 2
-                self.config.mcts.num_simulations = 4
-            elif action_space_size < 16:
-                self.config.mcts.num_top_actions = 4
+            if self.config.env.env == 'VGDL':
+                # VGDL action spaces are small; search over all actions instead of truncating to a top-k subset.
+                self.config.mcts.num_top_actions = action_space_size
             else:
-                self.config.mcts.num_top_actions = 8
+                self.config.mcts.num_top_actions = min(action_space_size, self.config.mcts.num_top_actions)
+
+                if action_space_size < 4:
+                    self.config.mcts.num_top_actions = 2
+                    self.config.mcts.num_simulations = 4
+                elif action_space_size < 16:
+                    self.config.mcts.num_top_actions = 4
+                else:
+                    self.config.mcts.num_top_actions = 8
 
             if not self.config.mcts.use_gumbel:
                 self.config.mcts.num_simulations = 50

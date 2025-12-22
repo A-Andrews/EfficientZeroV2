@@ -14,7 +14,14 @@ class CurriculumConfig:
 class VGDLLevelCurriculum:
 
     def __init__(self, cfg: CurriculumConfig):
-        self.levels: List[int] = sorted(set(cfg.levels))
+        unique_levels = []
+        seen = set()
+        for lvl in cfg.levels:
+            if lvl in seen:
+                continue
+            unique_levels.append(lvl)
+            seen.add(lvl)
+        self.levels: List[int] = unique_levels
         if not self.levels:
             raise ValueError("Curriculum levels list cannot be empty.")
         self.cfg = cfg
