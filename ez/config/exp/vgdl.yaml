@@ -18,11 +18,11 @@ env:
   episodic: True
   initial_level: 9
   curriculum:
-    levels: [9, 10, 11, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8]
+    levels: [9, 10, 11, 12, 3]
     min_episodes: 10
-    win_threshold: 0.5
-    fallback_threshold: 0.2
-    patience: 20
+    win_threshold: 0.7
+    fallback_threshold: 0.3
+    patience: 50
 
 rl:
   discount: 0.997
@@ -34,8 +34,8 @@ rl:
 
 # optimizer
 optimizer:
-  type: SGD
-  lr: 0.2 # prev 0.2
+  type: Adam
+  lr: 1e-3 # prev 0.2
   lr_decay_type: none
   lr_warm_up: 0.01
   lr_decay_rate: 0.1
@@ -56,7 +56,7 @@ train:
   batch_size: 256
   training_steps: 200000        # 100 * 1000
   offline_training_steps: 20000 # 20 * 1000
-  start_transitions: 2000       # 2 * 1000
+  start_transitions: 5000       # 2 * 1000
 
   eval_n_episode: 10
   eval_interval: 10000
@@ -71,13 +71,13 @@ train:
   reward_loss_coeff: 1.0
   value_loss_coeff: 0.5  # prev 0.25, 1.5 for test model-free value fitting
   policy_loss_coeff: 1.0   # prev 1.0
-  consistency_coeff: 5.0  # prev 2.0
+  consistency_coeff: 2.0  # prev 2.0
   decorrelation_coeff: 0.01
   off_diag_coeff: 5e-3
   entropy_coeff: 5e-3
 
   max_grad_norm: 5
-  change_temperature: False
+  change_temperature: True
 
   periodic_reset: False
   value_reanalyze: False
@@ -89,14 +89,18 @@ train:
   value_target: 'mixed'   # sarsa or search or mixed or max
   use_IQL: False
   IQL_weight: 0.7
-  start_use_mix_training_steps: 1e6
+  start_use_mix_training_steps: 3e4
   mixed_value_threshold: 5e3
+
+# evaluation
+eval:
+  per_level: True
 
 # self-play data collection
 data:
-  num_envs: 4
+  num_envs: 8
   buffer_size: 1000000      # 1 * 1000 * 1000
-  total_transitions: 100000 # 100 * 1000
+  total_transitions: 1000000 # 100 * 1000
   top_transitions: 2e5
   trajectory_size: 400
   save_video: False
@@ -105,7 +109,7 @@ data:
 # MCTS
 mcts:
   language: cython
-  num_simulations: 16   # prev 8, ori_mcts 50
+  num_simulations: 32   # prev 8, ori_mcts 50
   num_top_actions: 4  # prev 4
   c_visit: 50
   c_scale: 0.1    # prev 0.1

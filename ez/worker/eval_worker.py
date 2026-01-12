@@ -5,6 +5,7 @@
 
 import os
 import time
+import copy
 import ray
 import torch
 import logging
@@ -24,6 +25,39 @@ class EvalWorker(Worker):
     def __init__(self, agent, replay_buffer, storage, config):
         super().__init__(0, agent, replay_buffer, storage, config)
 
+    def _get_eval_levels(self):
+        if self.config.env.env != "VGDL":
+            return None
+
+        eval_levels_cfg = getattr(self.config.eval, "levels", None)
+        per_level = getattr(self.config.eval, "per_level", False)
+        if not per_level and eval_levels_cfg is None:
+            return None
+
+        levels = []
+        if eval_levels_cfg is not None:
+            levels = list(eval_levels_cfg)
+        else:
+            curriculum_cfg = getattr(self.config.env, "curriculum", None)
+            if curriculum_cfg is not None:
+                try:
+                    levels = list(curriculum_cfg.levels)
+                except AttributeError:
+                    levels = list(curriculum_cfg.get("levels", []))
+
+        if not levels:
+            return None
+
+        unique_levels = []
+        seen = set()
+        for level in levels:
+            key = str(level)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_levels.append(level)
+        return unique_levels
+
     def run(self):
         model = self.agent.build_model()
         if int(torch.__version__[0]) == 2:
@@ -40,28 +74,63 @@ class EvalWorker(Worker):
                 episodes += 1
                 model.set_weights(ray.get(self.storage.get_weights.remote('self_play')))
                 model.eval()
-                max_curriculum_level = ray.get(self.storage.get_curriculum_level.remote())
-                if max_curriculum_level is not None:
-                    with open_dict(self.config):
-                        self.config.env.initial_level = int(max_curriculum_level)
 
                 save_path = Path(self.config.save_path) / 'evaluation' / 'step_{}'.format(counter)
                 save_path.mkdir(parents=True, exist_ok=True)
                 model_path = Path(self.config.save_path) / 'model.p'
-                eval_score, _ = eval(
-                    self.agent,
-                    model,
-                    self.config.train.eval_n_episode,
-                    save_path,
-                    self.config,
-                    max_steps=eval_steps,
-                    use_pb=False,
-                    verbose=0,
-                )
-                mean_score = eval_score.mean()
-                std_score = eval_score.std()
-                min_score = eval_score.min()
-                max_score = eval_score.max()
+                eval_levels = self._get_eval_levels()
+                if eval_levels is not None:
+                    all_scores = []
+                    per_level_scalars = {}
+                    for level in eval_levels:
+                        eval_config = copy.deepcopy(self.config)
+                        with open_dict(eval_config):
+                            eval_config.env.initial_level = level
+                            eval_config.env.curriculum = None
+
+                        level_tag = str(level).replace("/", "_")
+                        level_save_path = save_path / f"level_{level_tag}"
+                        level_save_path.mkdir(parents=True, exist_ok=True)
+                        eval_score, _ = eval(
+                            self.agent,
+                            model,
+                            self.config.train.eval_n_episode,
+                            level_save_path,
+                            eval_config,
+                            max_steps=eval_steps,
+                            use_pb=False,
+                            verbose=0,
+                        )
+                        if eval_score.size:
+                            all_scores.append(eval_score)
+                            per_level_scalars[f"eval/level_{level_tag}/mean_score"] = float(eval_score.mean())
+                            per_level_scalars[f"eval/level_{level_tag}/std_score"] = float(eval_score.std())
+                            per_level_scalars[f"eval/level_{level_tag}/max_score"] = float(eval_score.max())
+                            per_level_scalars[f"eval/level_{level_tag}/min_score"] = float(eval_score.min())
+
+                    eval_score = np.concatenate(all_scores) if all_scores else np.asarray([])
+                    if per_level_scalars:
+                        self.storage.add_eval_log_scalar.remote(per_level_scalars)
+                else:
+                    max_curriculum_level = ray.get(self.storage.get_curriculum_level.remote())
+                    if max_curriculum_level is not None:
+                        with open_dict(self.config):
+                            self.config.env.initial_level = int(max_curriculum_level)
+                    eval_score, _ = eval(
+                        self.agent,
+                        model,
+                        self.config.train.eval_n_episode,
+                        save_path,
+                        self.config,
+                        max_steps=eval_steps,
+                        use_pb=False,
+                        verbose=0,
+                    )
+
+                mean_score = eval_score.mean() if eval_score.size else 0.0
+                std_score = eval_score.std() if eval_score.size else 0.0
+                min_score = eval_score.min() if eval_score.size else 0.0
+                max_score = eval_score.max() if eval_score.size else 0.0
 
                 if mean_score >= best_eval_score:
                     best_eval_score = mean_score

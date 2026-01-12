@@ -64,6 +64,8 @@ eval:
   parallel_envs: null  # fallback to n_episodes when unset
   compare_value: False
   analysis_value: False
+  per_level: False
+  levels: null
 
 # ===========================================================================
 # setting
