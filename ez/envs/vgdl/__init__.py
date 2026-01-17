@@ -267,7 +267,7 @@ class RawVGDL(gym.Env):
         if truncated and not ended:
             info["TimeLimit.truncated"] = True
         if self._curriculum and done:
-            self._curriculum.record_episode(bool(win))
+            self._curriculum.record_episode(bool(win), steps=self._elapsed)
             info["curriculum"] = self._curriculum.maybe_transition()
             if info["curriculum"]["changed"]:
                 self._set_level(info["curriculum"]["level"])

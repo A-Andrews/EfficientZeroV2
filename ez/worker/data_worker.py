@@ -205,7 +205,8 @@ class DataWorker(Worker):
                         if level is not None:
                             log_payload["self_play/curriculum_level"] = level
                             log_payload["curriculum/level"] = level
-                        if curriculum_info.get("changed") and curriculum_info.get("reason") == "advance":
+                        reason = curriculum_info.get("reason")
+                        if curriculum_info.get("changed") and reason in ("advance", "forced"):
                             log_payload["curriculum/advanced"] = 1.0
                             self.storage.update_curriculum_level.remote(int(curriculum_info["level"]))
                         else:
