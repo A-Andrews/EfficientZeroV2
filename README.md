@@ -33,7 +33,9 @@ EfficientZero V2 outperforms the current state-of-the-art (SOTA) by a significan
 
 See [INSTALL.md](INSTALL.md) for installation instructions. 
 
+## 📚 Training Regime
 
+For a detailed explanation of how the training regime works, see [docs/training_regime.md](docs/training_regime.md).
 
 ## 🛠️ Running Experiments
 
